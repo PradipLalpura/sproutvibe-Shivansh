@@ -38,10 +38,11 @@ export default function PlantDetailPage() {
     setEntries(e)
     setEditForm({ name: p.name, species: p.species || '', location: p.location || '', notes: p.notes || '' })
     // Phase 1: resolve Indian names for the stored species (Latin join key).
-    if (p.species) {
+    if (p.species && p.species.trim()) {
+      const needle = p.species.trim().toLowerCase()
       searchIndianCatalogue({ q: p.species, limit: 10 })
         .then((hits) => {
-          const exact = hits.find((h) => (h.scientific_name || '').toLowerCase() === p.species.toLowerCase())
+          const exact = hits.find((h) => (h.scientific_name || '').toLowerCase() === needle)
           setIndianEntry(exact || null)
         })
         .catch(() => setIndianEntry(null))

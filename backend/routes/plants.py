@@ -22,7 +22,10 @@ from data.indian_plants import (
     VALID_CATEGORIES,
     VALID_KINDS,
     VALID_LANGS,
+    catalogue_to_species,
     enrich_species,
+    find_by_id,
+    find_by_scientific,
     list_categories,
     search_catalogue,
 )
@@ -114,7 +117,9 @@ def _enrich(result: SpeciesResult, lang: str) -> SpeciesResult:
     return SpeciesResult(**data)
 
 
-def _passes_filters(result: SpeciesResult, category: str | None, kind: str | None) -> bool:
+def _passes_filters(
+    result: SpeciesResult, category: str | None, kind: str | None
+) -> bool:
     if category and result.category != category:
         return False
     if kind and result.kind != kind:
@@ -447,21 +452,12 @@ async def get_species(
     lang = _check_lang(lang)
     if source == "indian_catalogue":
         # Catalogue detail by id (e.g. id=indian-tulsi-plant) or scientific name.
-        wanted = species_id.removeprefix("indian-")
-        match = next(
-            (e for e in search_catalogue("", lang=lang, limit=100) if e["id"] == species_id or e["id"] == f"indian-{wanted}"),
-            None,
-        )
-        if match is None:
-            from data.indian_plants import catalogue_to_species, find_by_scientific
-
+        entry = find_by_id(species_id)
+        if entry is None:
             entry = find_by_scientific(species_id.replace("_", " "))
-            if entry is None:
-                raise HTTPException(status_code=404, detail="Species not found")
-            match = catalogue_to_species(entry, lang=lang)
-        if match is None:
+        if entry is None:
             raise HTTPException(status_code=404, detail="Species not found")
-        return SpeciesResult(**match)
+        return SpeciesResult(**catalogue_to_species(entry, lang=lang))
     if source == "inaturalist":
         async with httpx.AsyncClient(timeout=8) as client:
             resp = await client.get(

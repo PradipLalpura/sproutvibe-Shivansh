@@ -2,8 +2,8 @@
 
 from data.indian_plants import (
     display_name_for,
+    find_by_id,
     find_by_scientific,
-    list_categories,
     load_catalogue,
     search_catalogue,
 )
@@ -51,7 +51,9 @@ def test_categories_endpoint(client, auth_headers):
 
 
 def test_indian_catalogue_no_key_needed(client, auth_headers):
-    resp = client.get("/plants/indian-catalogue", params={"q": "methi"}, headers=auth_headers)
+    resp = client.get(
+        "/plants/indian-catalogue", params={"q": "methi"}, headers=auth_headers
+    )
     assert resp.status_code == 200
     hits = resp.json()
     assert hits
@@ -96,7 +98,9 @@ def test_search_species_filters_and_validation(client, auth_headers):
     assert all(h["kind"] == "seed" for h in resp.json())
 
     bad = client.get(
-        "/plants/species/search", params={"q": "tulsi", "lang": "fr"}, headers=auth_headers
+        "/plants/species/search",
+        params={"q": "tulsi", "lang": "fr"},
+        headers=auth_headers,
     )
     assert bad.status_code == 422
     bad_cat = client.get(
@@ -115,3 +119,34 @@ def test_backward_compat_fields_present(client, auth_headers):
     hit = resp.json()[0]
     for field in ("id", "common_name", "scientific_name", "source"):
         assert field in hit
+
+
+def test_find_by_id_and_catalogue_detail(client, auth_headers):
+    assert find_by_id("tulsi-plant")["scientific_name"] == "Ocimum tenuiflorum"
+    assert find_by_id("indian-tulsi-plant")["id"] == "tulsi-plant"
+    assert find_by_id("nope") is None
+
+    resp = client.get(
+        "/plants/species/indian-methi-seed",
+        params={"source": "indian_catalogue"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["kind"] == "seed"
+    assert data["scientific_name"] == "Trigonella foenum-graecum"
+
+    resp = client.get(
+        "/plants/species/Ocimum tenuiflorum",
+        params={"source": "indian_catalogue", "lang": "gu"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["display_name"] == "તુલસી"
+
+    resp = client.get(
+        "/plants/species/indian-nope",
+        params={"source": "indian_catalogue"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 404

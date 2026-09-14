@@ -294,7 +294,7 @@ export default function AddPlantPage() {
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">These are Claude AI suggestions — always verify with a reliable plant care source.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Care timings are suggestions — always verify with a reliable plant care source.</p>
               </div>
             )}
 

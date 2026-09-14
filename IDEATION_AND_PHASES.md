@@ -228,8 +228,8 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
   - [x] `GET /plants/categories`, `GET /plants/indian-catalogue`, `?lang=&category=&kind=` on search/detail, Wikipedia hi/gu fallback.
 - Frontend:
   - [x] `AddPlantPage` + `PlantDetailPage` display_name first, filter chips, placeholder examples.
-- Tests: [x] `backend/tests/test_indian_catalogue.py` (10 tests) + full suite 44 passed.
-- Done: §1.3 all checked.
+- Tests: [x] `backend/tests/test_indian_catalogue.py` (11 tests) + full suite 45 passed + `ruff check`/`format` clean.
+- Done: §1.3 all checked. Review 2026-09-14: fixed `find_by_id` direct lookup (no 100-item cap), moved imports top-level, frontend copy neutralised, `PlantDetail` whitespace-tolerant match.
 
 ### Phase 2 — i18n EN→HI/GU (2–3 days, can overlap Phase 1 frontend)
 - Add `i18next + react-i18next + detector` (pinned), `src/locales/{en,hi,gu}.json`, `src/i18n.js`, `api/client.js` language header.
@@ -260,31 +260,34 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 - MCP additions, kiosk/demo copy in hi/gu, docs (`README` + `docs/` updates), E2E (search→scan→chat→translate flow), pre-commit + pytest + vitest green, semantic-release notes.
 - Update `SHIVANSH_CHANGELOG.md` to `Released`.
 
-**Proposed new files (to be created in phases, not now):**
+**Proposed new files (Phase 1 done, rest to be created in later phases):**
 ```
-backend/data/indian_plants.json
-backend/data/plant_knowledge.md
-backend/models/indian_plant.py
-backend/models/chat.py
-backend/models/plant_scan.py
-backend/routes/chat.py
-backend/routes/scan.py
-backend/ai/providers.py
-backend/ai/agent.py
-backend/ai/vision.py
-backend/tests/test_indian_catalogue.py
-backend/tests/test_chat.py
-backend/tests/test_scan.py
-frontend/src/i18n.js
-frontend/src/locales/en.json
-frontend/src/locales/hi.json
-frontend/src/locales/gu.json
-frontend/src/api/chat.js
-frontend/src/api/scan.js
-frontend/src/pages/ChatPage.jsx
-frontend/src/pages/ScanPage.jsx
-frontend/src/components/ChatWidget.jsx
+backend/data/indian_plants.json        ✅ Phase 1 (62 entries)
+backend/data/indian_plants.py          ✅ Phase 1 (loader/search/enrich)
+backend/data/__init__.py               ✅ Phase 1
+backend/data/plant_knowledge.md        ⏳ Phase 5
+backend/routes/chat.py                 ⏳ Phase 5
+backend/routes/scan.py                 ⏳ Phase 4
+backend/ai/providers.py                ⏳ Phase 3
+backend/ai/agent.py                    ⏳ Phase 5
+backend/ai/vision.py                   ⏳ Phase 4
+backend/models/chat.py                 ⏳ Phase 5
+backend/models/plant_scan.py           ⏳ Phase 4
+backend/tests/test_indian_catalogue.py ✅ Phase 1 (11 tests)
+backend/tests/test_chat.py             ⏳ Phase 5
+backend/tests/test_scan.py             ⏳ Phase 4
+frontend/src/i18n.js                   ⏳ Phase 2
+frontend/src/locales/en.json           ⏳ Phase 2
+frontend/src/locales/hi.json           ⏳ Phase 2
+frontend/src/locales/gu.json           ⏳ Phase 2
+frontend/src/api/chat.js               ⏳ Phase 5
+frontend/src/api/scan.js               ⏳ Phase 4
+frontend/src/pages/ChatPage.jsx        ⏳ Phase 5
+frontend/src/pages/ScanPage.jsx        ⏳ Phase 4
+frontend/src/components/ChatWidget.jsx ⏳ Phase 5
 ```
+
+> Note: earlier drafts listed `backend/models/indian_plant.py` (DB table). Phase 1 review decision: JSON-only MVP, no table — Latin `scientific_name` is the join key, so no migration risk. A table can be revisited in Phase 6 if admin CRUD is needed.
 
 ---
 

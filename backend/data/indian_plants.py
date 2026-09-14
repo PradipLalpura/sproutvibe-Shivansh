@@ -43,10 +43,16 @@ def load_catalogue() -> list[dict]:
     # Validate once at load so bad data fails fast in tests/startup.
     seen_ids: set[str] = set()
     for e in entries:
-        assert e.get("id") and e["id"] not in seen_ids, f"duplicate catalogue id: {e.get('id')}"
+        assert e.get("id") and e["id"] not in seen_ids, (
+            f"duplicate catalogue id: {e.get('id')}"
+        )
         seen_ids.add(e["id"])
-        assert e.get("scientific_name"), f"catalogue entry missing scientific_name: {e.get('id')}"
-        assert e.get("category") in VALID_CATEGORIES, f"bad category in {e['id']}: {e.get('category')}"
+        assert e.get("scientific_name"), (
+            f"catalogue entry missing scientific_name: {e.get('id')}"
+        )
+        assert e.get("category") in VALID_CATEGORIES, (
+            f"bad category in {e['id']}: {e.get('category')}"
+        )
         assert e.get("kind") in VALID_KINDS, f"bad kind in {e['id']}: {e.get('kind')}"
     return entries
 
@@ -78,11 +84,27 @@ def find_by_scientific(scientific_name: str) -> dict | None:
     return matches[0]
 
 
+def find_by_id(entry_id: str) -> dict | None:
+    """Direct lookup by catalogue id (accepts 'tulsi-plant' or 'indian-tulsi-plant')."""
+    wanted = _normalize(entry_id).removeprefix("indian-")
+    if not wanted:
+        return None
+    return next((e for e in load_catalogue() if e["id"] == wanted), None)
+
+
 def display_name_for(entry: dict, lang: str = "en") -> str:
     if lang == "hi":
-        return entry.get("hindi_name") or entry.get("hindi_translit") or entry.get("english_name", "")
+        return (
+            entry.get("hindi_name")
+            or entry.get("hindi_translit")
+            or entry.get("english_name", "")
+        )
     if lang == "gu":
-        return entry.get("gujarati_name") or entry.get("gujarati_translit") or entry.get("english_name", "")
+        return (
+            entry.get("gujarati_name")
+            or entry.get("gujarati_translit")
+            or entry.get("english_name", "")
+        )
     return entry.get("hindi_translit") or entry.get("english_name", "")
 
 
@@ -110,7 +132,10 @@ def enrich_species(payload: dict, lang: str = "en") -> dict:
         out["kind"] = entry.get("kind")
     else:
         out.setdefault("indian_names", None)
-        out.setdefault("display_name", payload.get("common_name") or payload.get("scientific_name") or "")
+        out.setdefault(
+            "display_name",
+            payload.get("common_name") or payload.get("scientific_name") or "",
+        )
         out.setdefault("category", None)
         out.setdefault("kind", None)
     return out
@@ -141,9 +166,16 @@ def search_catalogue(
         # Every query token must appear somewhere in the blob (AND semantics).
         if all(tok in blob for tok in tokens):
             # Rank exact translit/alias hits above partial substring hits.
-            names = {_normalize(entry.get("hindi_translit", "")), _normalize(entry.get("gujarati_translit", ""))}
+            names = {
+                _normalize(entry.get("hindi_translit", "")),
+                _normalize(entry.get("gujarati_translit", "")),
+            }
             names |= {_normalize(a) for a in entry.get("aliases", [])}
-            score = 0 if nq in names or nq == _normalize(entry.get("english_name", "")) else 1
+            score = (
+                0
+                if nq in names or nq == _normalize(entry.get("english_name", ""))
+                else 1
+            )
             results.append((score, entry))
     results.sort(key=lambda t: (t[0], t[1]["id"]))
     page = [e for _, e in results][offset : offset + limit]
