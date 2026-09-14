@@ -1,8 +1,8 @@
 # SproutVibe-Shivansh — Ideation & Phases
 
 > Scope owner: Shivansh team (fork of `sproutvibe-main`)
-> Date: 2026-09-14 (updated: Phase 0 + Phase 1 done)
-> Status: **Phase 0 + Phase 1 implemented and tested — Phases 2–6 not started**
+> Date: 2026-09-14 (updated: Phase 0 + Phase 1 + Phase 2 done)
+> Status: **Phase 0–2 implemented and tested — Phases 3–6 not started**
 > Source codebase analysed: `backend/routes/plants.py`, `backend/ai/care.py`, `backend/core/config.py`, `frontend/src/api/plants.js`, `README.md`, `CHANGELOG.md`
 > Key note: temporary Groq key shared by owner is **remembered for future phases only — never committed** (env/Setting at build time). See §5.
 > Companion: `EXPLANATION.md` (human/viva story) + `SHIVANSH_CHANGELOG.md` (version tracker).
@@ -144,10 +144,11 @@ All UI strings are hardcoded English. Target users need Hindi + Gujarati.
 - Backend error `detail` strings stay English in API, frontend maps to localised friendly message.
 
 **Stack (pinned per `CLAUDE.md`):**
-- `i18next==<pinned> + react-i18next==<pinned> + i18next-browser-languagedetector==<pinned>` (exact versions chosen at implementation time, no `^`).
-- Locale files: `frontend/src/locales/en.json, hi.json, gu.json` (namespaced: `common, dashboard, plants, chat, settings, errors`).
-- Language source of truth: `localStorage: sprout_lang` + `Setting{key: language}` server sync (like theme). `Accept-Language` header sent by `api/client.js` interceptor.
-- Backend: `?lang=` / `Accept-Language` on species + chat + scan endpoints; prompts include `Respond in {lang}`; Wikipedia lang subdomain switch.
+- `i18next==26.4.2 + react-i18next==17.0.14` (exact, no detector package — 12-line `detectInitialLanguage()` in `src/i18n.js` covers localStorage → navigator → en; one less dependency to explain in viva).
+- Locale files: `frontend/src/locales/en.json, hi.json, gu.json` (single `translation` namespace, nested sections: `common, nav, auth, server, dashboard, plants, journal, settings, errors`; human-reviewed Hindi/Gujarati, no raw MT).
+- Language source of truth: `localStorage: sprout_lang` + `Setting{key: language}` server sync (mirrors `useTheme`). `Accept-Language` header sent by `api/client.js` interceptor.
+- Backend: `?lang=` / `Accept-Language` on species + chat + scan endpoints; prompts include `Respond in {lang}`; Wikipedia lang subdomain switch. (Species done Phase 1; chat/scan honour `lang` when they land in Phases 4–5 — API already accepts it.)
+- Dates/relative times localised via `date-fns/locale` (`hi`, `gu`) in `src/dateLocale.js`.
 
 **Process:**
 - Extract strings via codemod/manual pass (no auto-machine-translate in repo — human-reviewed Hindi/Gujarati).
@@ -155,10 +156,10 @@ All UI strings are hardcoded English. Target users need Hindi + Gujarati.
 - PWA + Capacitor safe-area + font check: Devanagari + Gujarati render on Android WebView (system fonts OK, verify).
 
 ### 3.3 Acceptance criteria
-- [ ] Language switcher in Settings + persist across reload + server sync.
-- [ ] All MVP screens render in en/hi/gu with no missing-key fallback visible.
-- [ ] Species + chat + scan honour `lang`.
-- [ ] Tests: locale key parity script (`en` keys ⊆ `hi,gu`), detector + fallback test.
+- [x] Language switcher in Settings + persist across reload + server sync.
+- [x] All MVP screens render in en/hi/gu with no missing-key fallback visible.
+- [x] Species honours `lang` (chat/scan endpoints land in Phases 4–5 with `lang` already in their API design).
+- [x] Tests: locale key parity (`en` keys ≡ `hi,gu`), detector + fallback test.
 
 ---
 
@@ -231,11 +232,12 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 - Tests: [x] `backend/tests/test_indian_catalogue.py` (11 tests) + full suite 45 passed + `ruff check`/`format` clean.
 - Done: §1.3 all checked. Review 2026-09-14: fixed `find_by_id` direct lookup (no 100-item cap), moved imports top-level, frontend copy neutralised, `PlantDetail` whitespace-tolerant match.
 
-### Phase 2 — i18n EN→HI/GU (2–3 days, can overlap Phase 1 frontend)
-- Add `i18next + react-i18next + detector` (pinned), `src/locales/{en,hi,gu}.json`, `src/i18n.js`, `api/client.js` language header.
-- `SettingsPage` language switcher + `Setting.language` sync; key-parity script.
-- Translate chrome first, then species/chat/scan strings as those phases land.
-- Done when §3.3 passes.
+### Phase 2 — i18n EN→HI/GU ✅ done 2026-09-14
+- [x] `i18next==26.4.2 + react-i18next==17.0.14` (pinned exact), `src/i18n.js` (sync resources, `normalizeLang`, `applyLanguage` incl. `<html lang>`), `src/hooks/useLanguage.js` (mirrors `useTheme`: local + `Setting.language` + `auth:login` re-sync), `api/client.js` `Accept-Language` header, `api/plants.js` species calls default to stored lang.
+- [x] All 8 MVP screens translated (Layout, Login, ServerSetup, Dashboard, AddPlant, PlantDetail, JournalEntry, Settings) + `LanguageSection` switcher (EN/हिं/ગુ) in Appearance; `date-fns` hi/gu locales for relative times + dates; `<html lang>` set.
+- [x] `src/locales/__tests__/parity.test.js` (10 tests: exact key parity, no-empty, no-fallback render check, plurals/interpolation, detector, persistence); full frontend suite 21 passed, `eslint` 0 errors, `vite build` green.
+- [x] No backend change needed (`/settings/` is generic key-value; `language` key flows through existing encryption).
+- Done: §3.3 all checked. Out of scope kept out: task_type data values stay English (backend data, not chrome); journal body never auto-translated.
 
 ### Phase 3 — AI provider layer: Groq primary + Cerebras fallback (1–2 days)
 - `backend/ai/providers.py`: `GroqProvider + CerebrasProvider` (OpenAI-compatible), `ProviderChain(primary=groq, fallback=cerebras)` with timeout + error classification.
@@ -303,4 +305,5 @@ frontend/src/components/ChatWidget.jsx ⏳ Phase 5
 ## 8. Build log
 - 2026-09-14 docs: analysis + planning files only (no code).
 - 2026-09-14 Phase 0: models pinned (Groq scout / Cerebras qwen-3.8 + gemma-4), env placeholders, file locations locked.
-- 2026-09-14 Phase 1: catalogue (62 entries) + enriched API + frontend display + 10 new tests (44 total green). Temporary Groq key remembered privately, never stored in repo. Phases 2–6 not started.
+- 2026-09-14 Phase 1: catalogue (62 entries) + enriched API + frontend display + 11 new tests (45 total green). Temporary Groq key remembered privately, never stored in repo.
+- 2026-09-14 Phase 2: en/hi/gu UI via i18next (pinned), switcher + server sync, `Accept-Language` + species `lang` defaults, date-fns hi/gu, 10 new tests (21 frontend green, build green). Phases 3–6 not started.

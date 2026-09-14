@@ -1,4 +1,5 @@
 import api from './client'
+import { getStoredLanguage } from '../i18n'
 
 export const getPlants = () => api.get('/plants/').then(r => r.data)
 export const getHealthSummary = () => api.get('/plants/health-summary').then(r => r.data)
@@ -12,11 +13,11 @@ export const uploadPlantPhoto = (id, file) => {
   return api.post(`/plants/${id}/photo`, form).then(r => r.data)
 }
 
-export const searchSpecies = (q, { lang = 'en', category, kind } = {}) =>
+export const searchSpecies = (q, { lang = getStoredLanguage(), category, kind } = {}) =>
   api.get('/plants/species/search', { params: { q, lang, category, kind } }).then(r => r.data)
-export const getSpecies = (id, source = 'perenual', lang = 'en') =>
+export const getSpecies = (id, source = 'perenual', lang = getStoredLanguage()) =>
   api.get(`/plants/species/${id}`, { params: { source, lang } }).then(r => r.data)
-export const getWikiDescription = (scientificName, lang = 'en') =>
+export const getWikiDescription = (scientificName, lang = getStoredLanguage()) =>
   api.get('/plants/species/wiki-description', { params: { scientific_name: scientificName, lang } }).then(r => r.data)
 
 // Phase 1 — Indian catalogue (works with no external API keys).

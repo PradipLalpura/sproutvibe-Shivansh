@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import AppSettingsProvider from './hooks/AppSettingsContext.jsx'
 import { useTheme } from './hooks/useTheme'
+import { useLanguage } from './hooks/useLanguage'
 import { getServerUrl } from './api/client'
 import Layout from './components/Layout'
 import ServerSetupPage from './pages/ServerSetupPage'
@@ -14,8 +16,9 @@ import JournalEntryPage from './pages/JournalEntryPage'
 import SettingsPage from './pages/SettingsPage'
 
 function ProtectedRoute({ children }) {
+  const { t } = useTranslation()
   const { user, loading } = useAuth()
-  if (loading) return <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-500">Loading…</div>
+  if (loading) return <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-500">{t('common.loading')}</div>
   if (!user) return <Navigate to="/login" replace />
   return <Layout>{children}</Layout>
 }
@@ -29,6 +32,7 @@ function PublicRoute({ children }) {
 
 export default function App() {
   const { theme, setTheme } = useTheme()
+  const { language, setLanguage } = useLanguage()
   const [serverConfigured, setServerConfigured] = useState(() => !!getServerUrl())
 
   if (!serverConfigured) {
@@ -45,7 +49,7 @@ export default function App() {
           <Route path="/plants/new" element={<ProtectedRoute><AddPlantPage /></ProtectedRoute>} />
           <Route path="/plants/:id" element={<ProtectedRoute><PlantDetailPage /></ProtectedRoute>} />
           <Route path="/plants/:id/journal/:entryId" element={<ProtectedRoute><JournalEntryPage /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><SettingsPage theme={theme} setTheme={setTheme} /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><SettingsPage theme={theme} setTheme={setTheme} language={language} setLanguage={setLanguage} /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

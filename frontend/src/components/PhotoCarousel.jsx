@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { format } from 'date-fns'
+import { dateLocaleFor } from '../dateLocale'
 
 /**
  * Horizontal scrollable photo strip. Tapping a photo opens a fullscreen lightbox
@@ -62,6 +64,8 @@ export default function PhotoCarousel({ photos }) {
 }
 
 function Lightbox({ photos, initialIndex, onClose }) {
+  const { i18n } = useTranslation()
+  const dateLocale = dateLocaleFor(i18n.language)
   const [index, setIndex] = useState(initialIndex)
   const [offset, setOffset] = useState(0)   // live drag in px
   const [sliding, setSliding] = useState(false)
@@ -133,7 +137,7 @@ function Lightbox({ photos, initialIndex, onClose }) {
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <span className="text-white/60 text-sm">{index + 1} / {photos.length}</span>
         <span className="text-white/60 text-sm">
-          {photo.date ? format(new Date(photo.date), 'MMM d, yyyy') : ''}
+          {photo.date ? format(new Date(photo.date), 'MMM d, yyyy', { locale: dateLocale }) : ''}
         </span>
         <button onClick={onClose} className="text-white/60 hover:text-white text-2xl leading-none">×</button>
       </div>

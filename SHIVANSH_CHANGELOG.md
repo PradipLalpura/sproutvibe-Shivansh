@@ -22,6 +22,19 @@
 ### Fixed
 - None.
 
+## [0.3.0] - 2026-09-14
+
+### Added — Phase 2 (EN → HI/GU translation)
+- `i18next==26.4.2 + react-i18next==17.0.14` (pinned exact; no detector package — 12-line custom detection: localStorage → navigator → en).
+- `frontend/src/i18n.js` (sync resources, `normalizeLang`, `applyLanguage` + `<html lang>`), `src/hooks/useLanguage.js` (mirrors `useTheme`: local + `Setting.language` server sync + `auth:login` re-sync), `src/locales/{en,hi,gu}.json` (~150 human-reviewed keys, 9 sections).
+- All 8 MVP screens translated + `LanguageSection` switcher (EN/हिं/ગુ) in Settings → Appearance; `Accept-Language` header on every API call; species search/detail/wiki default to stored lang; `date-fns` hi/gu locales for relative times and dates.
+- No backend change needed (`/settings/` already generic key-value).
+- **Tests**: `src/locales/__tests__/parity.test.js` (10 tests: exact key parity, no-empty, no-fallback render, plurals/interpolation, detector, persistence). Frontend suite: 21 passed, `eslint` 0 errors, `vite build` green.
+
+### Notes
+- Task-type data values (`water`, `fertilize`…) stay English (backend data, not UI chrome); journal bodies never auto-translated — deliberate.
+- Next: Phase 3 Groq/Cerebras provider layer.
+
 ## [0.2.0] - 2026-09-14
 
 ### Added — Phase 0 + Phase 1

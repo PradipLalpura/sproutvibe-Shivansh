@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { createPlant, searchSpecies, getSpecies, getWikiDescription, getAiCare } from '../api/plants'
 import { createSchedule } from '../api/watering'
 import { resolveMediaUrl } from '../api/client'
@@ -19,11 +20,10 @@ const SOURCE_CONFIG = {
   perenual:    { label: 'Perenual',    cls: 'bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400' },
   floracodex:  { label: 'FloraCodex',  cls: 'bg-purple-50 text-purple-500 dark:bg-purple-900/30 dark:text-purple-400' },
   inaturalist: { label: 'iNaturalist', cls: 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400' },
-  indian_catalogue: { label: 'Indian', cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
+  indian_catalogue: { badgeKey: 'plants.indianBadge', cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
 }
 
 const CATEGORY_OPTIONS = ['', 'vegetable', 'fruit', 'flower', 'herb_medicinal', 'spice', 'grain_pulse', 'tree', 'succulent', 'other']
-const KIND_OPTIONS = ['', 'plant', 'seed']
 
 // Display name first (Indian name when available), Latin kept small.
 function displayOf(r) {
@@ -47,6 +47,7 @@ function buildSuggestedSchedules(species) {
 }
 
 export default function AddPlantPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', species: '', location: '', notes: '', photo_url: null })
   const [loading, setLoading] = useState(false)
@@ -147,28 +148,37 @@ export default function AddPlantPage() {
       }).catch(() => null))) // don't block plant creation if a schedule fails
       navigate(`/plants/${plant.id}`)
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to create plant')
+      setError(err.response?.data?.detail || t('plants.createFailed'))
     } finally {
       setLoading(false)
     }
   }
 
+  const sourceBadge = (source) => {
+    const src = SOURCE_CONFIG[source] || { label: source, cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' }
+    return (
+      <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${src.cls}`}>{src.badgeKey ? t(src.badgeKey) : src.label}</span>
+    )
+  }
+
+  const categoryLabel = (slug) => (slug ? t(`plants.cat.${slug}`, { defaultValue: slug.replace('_', ' ') }) : '')
+
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Link to="/" className="text-gray-400 hover:text-gray-600 text-lg">←</Link>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Add a plant</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('plants.addTitle')}</h1>
       </div>
 
       {/* Species search */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 mb-6">
-        <h2 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">Search plant database</h2>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Find your plant to auto-fill details and care schedule</p>
+        <h2 className="font-semibold text-gray-700 dark:text-gray-300 mb-1">{t('plants.searchTitle')}</h2>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">{t('plants.searchSub')}</p>
 
         {apiUnavailable ? (
           <div className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 flex items-center justify-between gap-3">
-            <span>No plant database configured yet.</span>
-            <Link to="/settings" className="font-medium text-amber-700 underline whitespace-nowrap">Go to Settings →</Link>
+            <span>{t('plants.noDb')}</span>
+            <Link to="/settings" className="font-medium text-amber-700 underline whitespace-nowrap">{t('plants.goSettings')}</Link>
           </div>
         ) : (
           <div className="relative">
@@ -176,12 +186,12 @@ export default function AddPlantPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. Tulsi / तुलसी / Haldi / Methi…"
+              placeholder={t('plants.searchPlaceholder')}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
             {(searching || loadingDetails) && (
               <span className="absolute right-3 top-2.5 text-gray-400 text-sm">
-                {loadingDetails ? 'Loading details…' : 'Searching…'}
+                {loadingDetails ? t('common.loadingDetails') : t('common.searching')}
               </span>
             )}
             <div className="flex gap-2 mt-2">
@@ -189,25 +199,25 @@ export default function AddPlantPage() {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                title="Filter by category"
+                title={t('plants.searchTitle')}
               >
                 {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>{c === '' ? 'All categories' : c.replace('_', ' ')}</option>
+                  <option key={c} value={c}>{c === '' ? t('plants.allCategories') : categoryLabel(c)}</option>
                 ))}
               </select>
               <select
                 value={kind}
                 onChange={(e) => setKind(e.target.value)}
                 className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                title="Plant or seed"
+                title={t('plants.species')}
               >
-                {KIND_OPTIONS.map((k) => (
-                  <option key={k} value={k}>{k === '' ? 'Plant + seed' : k}</option>
-                ))}
+                <option value="">{t('plants.plantAndSeed')}</option>
+                <option value="plant">{t('plants.kindPlant')}</option>
+                <option value="seed">{t('plants.kindSeed')}</option>
               </select>
               {(category || kind) && (
                 <button type="button" onClick={() => { setCategory(''); setKind('') }}
-                  className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+                  className="text-xs text-gray-400 hover:text-gray-600 underline">{t('common.clear')}</button>
               )}
             </div>
             {results.length > 0 && (
@@ -227,18 +237,16 @@ export default function AddPlantPage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{displayOf(r)}</p>
-                        {(() => { const src = SOURCE_CONFIG[r.source] || { label: r.source, cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' }; return (
-                          <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${src.cls}`}>{src.label}</span>
-                        )})()}
+                        {sourceBadge(r.source)}
                         {r.kind === 'seed' && (
-                          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">seed</span>
+                          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{t('plants.seedBadge')}</span>
                         )}
                       </div>
                       {indianLine(r) && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{indianLine(r)}</p>
                       )}
                       <p className="text-xs text-gray-400 dark:text-gray-500 italic truncate">
-                        {r.scientific_name}{r.category ? ` · ${r.category.replace('_', ' ')}` : ''}
+                        {r.scientific_name}{r.category ? ` · ${categoryLabel(r.category)}` : ''}
                       </p>
                     </div>
                   </button>
@@ -259,10 +267,10 @@ export default function AddPlantPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold text-gray-800 dark:text-gray-100">{displayOf(selected)}</p>
                   {selected.kind === 'seed' && (
-                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">seed — sow, don&apos;t transplant</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{t('plants.seedSowNote')}</span>
                   )}
                   {selected.category && (
-                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">{selected.category.replace('_', ' ')}</span>
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">{categoryLabel(selected.category)}</span>
                   )}
                 </div>
                 {indianLine(selected) && (
@@ -270,7 +278,7 @@ export default function AddPlantPage() {
                 )}
                 <p className="text-sm text-gray-500 dark:text-gray-400 italic">{selected.scientific_name}</p>
                 {selected.common_name && selected.common_name !== displayOf(selected) && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">English: {selected.common_name}</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">{t('plants.englishName', { name: selected.common_name })}</p>
                 )}
               </div>
               <button type="button" onClick={() => { setSelected(null); setSchedules([]); setForm(f => ({ ...f, photo_url: null })) }}
@@ -284,8 +292,8 @@ export default function AddPlantPage() {
             {schedules.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Care schedules to create automatically</p>
-                  <span className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-500 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full">AI suggestion</span>
+                  <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('plants.careAuto')}</p>
+                  <span className="text-xs bg-purple-50 dark:bg-purple-900/20 text-purple-500 dark:text-purple-400 border border-purple-200 dark:border-purple-800 px-2 py-0.5 rounded-full">{t('plants.aiBadge')}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {schedules.map((s) => (
@@ -294,12 +302,12 @@ export default function AddPlantPage() {
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Care timings are suggestions — always verify with a reliable plant care source.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('plants.careNote')}</p>
               </div>
             )}
 
             {schedules.length === 0 && !selected.description && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 italic">No extra care data available for this species on the free plan.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 italic">{t('plants.noCareData')}</p>
             )}
           </div>
         )}
@@ -307,15 +315,15 @@ export default function AddPlantPage() {
 
       {/* Plant form */}
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-        <h2 className="font-semibold text-gray-700 dark:text-gray-300">Plant details</h2>
+        <h2 className="font-semibold text-gray-700 dark:text-gray-300">{t('plants.addTitle')}</h2>
 
         {/* Photo preview from species database */}
         {form.photo_url && (
           <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
             <img src={resolveMediaUrl(form.photo_url)} className="w-14 h-14 rounded-lg object-cover shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-green-700 dark:text-green-400">Photo from plant database</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">You can replace it after adding the plant</p>
+              <p className="text-xs font-medium text-green-700 dark:text-green-400">{t('plants.dbPhoto')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{t('plants.dbPhotoSub')}</p>
             </div>
             <button type="button" onClick={() => setForm(f => ({ ...f, photo_url: null }))}
               className="text-gray-300 dark:text-gray-600 hover:text-gray-500 text-lg leading-none shrink-0">×</button>
@@ -323,43 +331,43 @@ export default function AddPlantPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nickname *</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('plants.nickname')}</label>
           <input
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
-            placeholder="e.g. My Tulsi"
+            placeholder={t('plants.nicknamePh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Species</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('plants.species')}</label>
           <input
             type="text"
             value={form.species}
             onChange={(e) => setForm({ ...form, species: e.target.value })}
-            placeholder="e.g. Ocimum tenuiflorum (Tulsi)"
+            placeholder={t('plants.speciesPh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('plants.location')}</label>
           <input
             type="text"
             value={form.location}
             onChange={(e) => setForm({ ...form, location: e.target.value })}
-            placeholder="e.g. Living room window"
+            placeholder={t('plants.locationPh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description / notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('plants.notes')}</label>
           <textarea
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={4}
-            placeholder="Fetched automatically when you pick a species, or write your own…"
+            placeholder={t('plants.notesPh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
@@ -371,10 +379,10 @@ export default function AddPlantPage() {
           className="w-full bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
           {loading
-            ? 'Adding…'
+            ? t('plants.adding')
             : schedules.length > 0
-              ? `Add plant + ${schedules.length} care task${schedules.length > 1 ? 's' : ''}`
-              : 'Add plant'}
+              ? t('plants.addPlantTasks', { count: schedules.length })
+              : t('plants.addPlantBtn')}
         </button>
       </form>
     </div>

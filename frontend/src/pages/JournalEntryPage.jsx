@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { createEntry, updateEntry, deleteEntry, uploadEntryPhoto, getEntries } from '../api/journal'
 import { format } from 'date-fns'
 import { resolveMediaUrl } from '../api/client'
 
 export default function JournalEntryPage() {
+  const { t } = useTranslation()
   const { id: plantId, entryId } = useParams()
   const navigate = useNavigate()
   const cameraRef = useRef()
@@ -71,12 +73,12 @@ export default function JournalEntryPage() {
   }
 
   const handleDelete = async () => {
-    if (!confirm('Delete this entry?')) return
+    if (!confirm(t('journal.deleteConfirm'))) return
     await deleteEntry(plantId, entryId)
     navigate(`/plants/${plantId}`)
   }
 
-  if (loading) return <p className="text-center py-20 text-gray-400">Loading…</p>
+  if (loading) return <p className="text-center py-20 text-gray-400">{t('common.loading')}</p>
 
   const photoUrl = pendingPreview || resolveMediaUrl(entry?.photo_url)
 
@@ -85,7 +87,7 @@ export default function JournalEntryPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link to={`/plants/${plantId}`} className="text-gray-400 hover:text-gray-600">←</Link>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{isNew ? 'New entry' : 'Edit entry'}</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{isNew ? t('journal.newEntry') : t('journal.editEntry')}</h1>
         </div>
         {!isNew && (
           <button onClick={handleDelete} className="text-gray-400 hover:text-red-500">🗑️</button>
@@ -105,13 +107,13 @@ export default function JournalEntryPage() {
               onClick={() => cameraRef.current.click()}
               className="bg-black/50 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur hover:bg-black/70 transition-colors"
             >
-              📷 Camera
+              {t('journal.camera')}
             </button>
             <button
               onClick={() => libraryRef.current.click()}
               className="bg-black/50 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur hover:bg-black/70 transition-colors"
             >
-              🖼️ Library
+              {t('journal.library')}
             </button>
           </div>
           {pendingPreview && (
@@ -119,7 +121,7 @@ export default function JournalEntryPage() {
               onClick={handleRemovePending}
               className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2.5 py-1.5 rounded-full backdrop-blur hover:bg-black/70 transition-colors"
             >
-              ✕ Remove
+              {t('journal.remove')}
             </button>
           )}
         </div>
@@ -130,21 +132,21 @@ export default function JournalEntryPage() {
             className="flex-1 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-5 flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors"
           >
             <span className="text-2xl">📷</span>
-            <span className="text-xs">Take photo</span>
+            <span className="text-xs">{t('journal.takePhoto')}</span>
           </button>
           <button
             onClick={() => libraryRef.current.click()}
             className="flex-1 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-5 flex flex-col items-center gap-1 text-gray-400 dark:text-gray-500 hover:border-green-400 hover:text-green-600 transition-colors"
           >
             <span className="text-2xl">🖼️</span>
-            <span className="text-xs">Choose from library</span>
+            <span className="text-xs">{t('journal.chooseLibrary')}</span>
           </button>
         </div>
       )}
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('journal.date')}</label>
           <input
             type="datetime-local"
             value={form.entry_date}
@@ -153,43 +155,43 @@ export default function JournalEntryPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('journal.title')}</label>
           <input
             type="text"
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="e.g. New leaf spotted!"
+            placeholder={t('journal.titlePh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('journal.notes')}</label>
           <textarea
             value={form.body}
             onChange={(e) => setForm({ ...form, body: e.target.value })}
             rows={5}
-            placeholder="What did you observe?"
+            placeholder={t('journal.notesPh')}
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Plant health</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('journal.health')}</label>
           <div className="flex gap-2 flex-wrap">
             {[
-              { value: 'thriving', label: 'Thriving', on: 'bg-emerald-500 text-white border-emerald-500', off: 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400' },
-              { value: 'good',     label: 'Good',     on: 'bg-green-500 text-white border-green-500',   off: 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' },
-              { value: 'okay',     label: 'Okay',     on: 'bg-yellow-400 text-white border-yellow-400', off: 'border-yellow-300 text-yellow-600 dark:border-yellow-600 dark:text-yellow-400' },
-              { value: 'poor',     label: 'Poor',     on: 'bg-orange-400 text-white border-orange-400', off: 'border-orange-300 text-orange-600 dark:border-orange-600 dark:text-orange-400' },
-              { value: 'critical', label: 'Critical', on: 'bg-red-500 text-white border-red-500',       off: 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' },
-            ].map(({ value, label, on, off }) => (
+              { value: 'thriving', on: 'bg-emerald-500 text-white border-emerald-500', off: 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-400' },
+              { value: 'good',     on: 'bg-green-500 text-white border-green-500',   off: 'border-green-300 text-green-600 dark:border-green-700 dark:text-green-400' },
+              { value: 'okay',     on: 'bg-yellow-400 text-white border-yellow-400', off: 'border-yellow-300 text-yellow-600 dark:border-yellow-600 dark:text-yellow-400' },
+              { value: 'poor',     on: 'bg-orange-400 text-white border-orange-400', off: 'border-orange-300 text-orange-600 dark:border-orange-600 dark:text-orange-400' },
+              { value: 'critical', on: 'bg-red-500 text-white border-red-500',       off: 'border-red-300 text-red-600 dark:border-red-700 dark:text-red-400' },
+            ].map(({ value, on, off }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setForm(f => ({ ...f, health: f.health === value ? null : value }))}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${form.health === value ? on : off}`}
               >
-                {label}
+                {t(`common.health.${value}`)}
               </button>
             ))}
           </div>
@@ -200,7 +202,7 @@ export default function JournalEntryPage() {
           disabled={saving}
           className="w-full bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : isNew ? 'Create entry' : 'Save changes'}
+          {saving ? t('journal.saving') : isNew ? t('journal.create') : t('journal.saveChanges')}
         </button>
       </div>
     </div>

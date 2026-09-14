@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getSettings, saveSettings, getVersion } from '../api/settings'
 import { useAppSettings } from '../hooks/useAppSettings'
 import { getSpecies, getAiCare } from '../api/plants'
@@ -6,28 +7,30 @@ import { getServerUrl, clearServerUrl } from '../api/client'
 import { getVapidPublicKey, subscribeUser, unsubscribeUser } from '../api/notifications'
 import { updateMe } from '../api/auth'
 import { useAuth } from '../hooks/useAuth'
+import { LANGS } from '../i18n'
 
-// Each integration is defined here — add new ones by extending this array
+// Each integration is defined here — add new ones by extending this array.
+// name/description are settings-locale keys resolved at render time.
 const INTEGRATIONS = [
   {
     id: 'perenual',
-    name: 'Perenual',
-    description: 'Adds watering, sunlight, and cycle data to search results. Free tier covers ~3,000 species (100 req/day); paid plans unlock the full 10,000+.',
+    nameKey: 'settings.perenualName',
+    descriptionKey: 'settings.perenualDesc',
     signupUrl: 'https://perenual.com/',
     docsUrl: 'https://perenual.com/api-doc',
     fields: [
-      { key: 'perenual_api_key', label: 'API Key', placeholder: 'sk-...', secret: true },
+      { key: 'perenual_api_key', labelKey: 'settings.apiKeyLabel', placeholder: 'sk-...', secret: true },
     ],
     test: async () => { await getSpecies('1', 'perenual') },
   },
   {
     id: 'floracodex',
-    name: 'FloraCodex',
-    description: 'Optional second species database with 400,000+ plants and photos. Used by plant-it. Merges with iNaturalist results for even broader coverage.',
+    nameKey: 'settings.floracodexName',
+    descriptionKey: 'settings.floracodexDesc',
     signupUrl: 'https://floracodex.com/',
     docsUrl: 'https://floracodex.com/docs/reference',
     fields: [
-      { key: 'floracodex_api_key', label: 'API Key', placeholder: 'fc-...', secret: true },
+      { key: 'floracodex_api_key', labelKey: 'settings.apiKeyLabel', placeholder: 'fc-...', secret: true },
     ],
     test: async () => { await getSpecies('609e2c34ca233f0aecfa9707', 'floracodex') },
   },
@@ -58,6 +61,7 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 function NotificationsSection() {
+  const { t } = useTranslation()
   const hasNotification = 'Notification' in window
   const isSecure = window.isSecureContext
   const [permission, setPermission] = useState(hasNotification ? Notification.permission : 'unsupported')
@@ -70,7 +74,7 @@ function NotificationsSection() {
     try {
       const perm = await Notification.requestPermission()
       setPermission(perm)
-      if (perm !== 'granted') { setStatus('Permission denied'); return }
+      if (perm !== 'granted') { setStatus(t('settings.denied')); return }
       const vapidKey = await getVapidPublicKey()
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.subscribe({
@@ -78,9 +82,9 @@ function NotificationsSection() {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       })
       await subscribeUser(sub)
-      setStatus('Notifications enabled!')
+      setStatus(t('settings.enabledMsg'))
     } catch (err) {
-      setStatus('Failed: ' + (err.message || 'unknown error'))
+      setStatus(t('settings.failedPrefix') + (err.message || t('errors.generic')))
     } finally {
       setBusy(false)
     }
@@ -97,9 +101,9 @@ function NotificationsSection() {
         await sub.unsubscribe()
       }
       setPermission('default')
-      setStatus('Notifications disabled.')
+      setStatus(t('settings.disabledMsg'))
     } catch (err) {
-      setStatus('Failed: ' + (err.message || 'unknown error'))
+      setStatus(t('settings.failedPrefix') + (err.message || t('errors.generic')))
     } finally {
       setBusy(false)
     }
@@ -109,22 +113,22 @@ function NotificationsSection() {
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Push notifications</h3>
+          <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('settings.pushTitle')}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Get daily reminders when plants are due for care, even when the app is closed.
+            {t('settings.pushDesc')}
           </p>
         </div>
         {!hasNotification ? (
-          <span className="text-xs text-gray-400">Not supported in this browser</span>
+          <span className="text-xs text-gray-400">{t('settings.notSupported')}</span>
         ) : !isSecure ? (
-          <span className="text-xs text-orange-500">Requires HTTPS</span>
+          <span className="text-xs text-orange-500">{t('settings.needHttps')}</span>
         ) : permission === 'granted' ? (
           <button
             onClick={handleDisable}
             disabled={busy}
             className="shrink-0 text-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? 'Disabling…' : 'Disable'}
+            {busy ? t('common.disabling') : t('common.disable')}
           </button>
         ) : (
           <button
@@ -132,15 +136,15 @@ function NotificationsSection() {
             disabled={busy || permission === 'denied'}
             className="shrink-0 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
-            {busy ? 'Enabling…' : 'Enable'}
+            {busy ? t('common.enabling') : t('common.enable')}
           </button>
         )}
       </div>
       {permission === 'denied' && (
-        <p className="text-xs text-orange-600 mt-2">Notifications are blocked. Allow them in your browser settings.</p>
+        <p className="text-xs text-orange-600 mt-2">{t('settings.blocked')}</p>
       )}
       {status && (
-        <p className={`text-sm mt-2 ${status.startsWith('Failed') || status === 'Permission denied' ? 'text-red-500' : 'text-green-600'}`}>
+        <p className={`text-sm mt-2 ${status.startsWith(t('settings.failedPrefix')) || status === t('settings.denied') ? 'text-red-500' : 'text-green-600'}`}>
           {status}
         </p>
       )}
@@ -149,6 +153,7 @@ function NotificationsSection() {
 }
 
 function NotificationRemindersSection({ settings, onSaved }) {
+  const { t } = useTranslation()
   const [permission] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'))
   const [enabled, setEnabled] = useState(() => settings.notifications_enabled !== 'false')
   const [hour, setHour] = useState(() => parseInt(settings.notifications_hour ?? '8'))
@@ -186,12 +191,12 @@ function NotificationRemindersSection({ settings, onSaved }) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
-      <h3 className="font-semibold text-gray-900 dark:text-gray-100">Notification reminders</h3>
+      <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('settings.reminders')}</h3>
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-gray-700 dark:text-gray-300">Reminder notifications</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Notify when plants are due or overdue for care</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">{t('settings.remindersTitle')}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('settings.remindersDesc')}</p>
         </div>
         <button
           role="switch"
@@ -206,7 +211,7 @@ function NotificationRemindersSection({ settings, onSaved }) {
 
       {enabled && (
         <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-700 dark:text-gray-300 shrink-0">Notify at</label>
+          <label className="text-sm text-gray-700 dark:text-gray-300 shrink-0">{t('settings.notifyAt')}</label>
           <select
             value={hour}
             onChange={changeHour}
@@ -221,13 +226,14 @@ function NotificationRemindersSection({ settings, onSaved }) {
         </div>
       )}
 
-      {status === 'saved' && <p className="text-xs text-green-600">✓ Saved</p>}
-      {status === 'error' && <p className="text-xs text-red-500">✗ Failed to save</p>}
+      {status === 'saved' && <p className="text-xs text-green-600">{t('common.saved')}</p>}
+      {status === 'error' && <p className="text-xs text-red-500">{t('common.saveFailed')}</p>}
     </div>
   )
 }
 
 function AIProviderSection({ initialValues, onSaved }) {
+  const { t } = useTranslation()
   const initialProvider = AI_PROVIDERS[initialValues.ai_provider]
     ? initialValues.ai_provider
     : 'anthropic'
@@ -249,11 +255,11 @@ function AIProviderSection({ initialValues, onSaved }) {
       await saveSettings(values)
       onSaved(values)
       if (test) await getAiCare('Monstera', 'Monstera deliciosa')
-      setStatus({ ok: true, message: test ? 'Connection successful!' : 'Settings saved.' })
+      setStatus({ ok: true, message: test ? t('settings.connOk') : t('settings.settingsSaved') })
     } catch (err) {
       setStatus({
         ok: false,
-        message: err.response?.data?.detail || (test ? 'Connection failed. Check your API key.' : 'Failed to save.'),
+        message: err.response?.data?.detail || (test ? t('settings.connFail') : t('settings.saveFail')),
       })
     } finally {
       setBusy(null)
@@ -263,14 +269,14 @@ function AIProviderSection({ initialValues, onSaved }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-4">
       <div className="p-5 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-gray-900 dark:text-gray-100">AI care provider</h3>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('settings.aiTitle')}</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Generates schedules and care tips when species data is unavailable. Provider choice is explicit; requests never fail over.
+          {t('settings.aiDesc')}
         </p>
       </div>
       <div className="p-5 space-y-4">
         <div>
-          <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Provider</label>
+          <label htmlFor="ai-provider" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.provider')}</label>
           <select
             id="ai-provider"
             value={provider}
@@ -284,8 +290,8 @@ function AIProviderSection({ initialValues, onSaved }) {
         </div>
         <div>
           <div className="flex justify-between mb-1">
-            <label htmlFor="ai-api-key" className="text-sm font-medium text-gray-700 dark:text-gray-300">{selected.name} API key</label>
-            <a href={selected.signupUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:underline">Get API key →</a>
+            <label htmlFor="ai-api-key" className="text-sm font-medium text-gray-700 dark:text-gray-300">{selected.name} {t('settings.apiKey')}</label>
+            <a href={selected.signupUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-green-600 hover:underline">{t('settings.getKey')}</a>
           </div>
           <div className="relative">
             <input
@@ -297,17 +303,17 @@ function AIProviderSection({ initialValues, onSaved }) {
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
             <button type="button" onClick={() => setShowKey(value => !value)} className="absolute right-3 top-2.5 text-gray-400 text-xs">
-              {showKey ? 'Hide' : 'Show'}
+              {showKey ? t('common.hide') : t('common.show')}
             </button>
           </div>
         </div>
         {status && <p className={`text-sm ${status.ok ? 'text-green-600' : 'text-red-500'}`}>{status.ok ? '✓ ' : '✗ '}{status.message}</p>}
         <div className="flex gap-2">
           <button onClick={() => save()} disabled={busy} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
-            {busy === 'save' ? 'Saving…' : 'Save'}
+            {busy === 'save' ? t('common.saving') : t('common.save')}
           </button>
           <button onClick={() => save(true)} disabled={busy || !keys[selected.key]} className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-40">
-            {busy === 'test' ? 'Testing…' : 'Test connection'}
+            {busy === 'test' ? t('common.testing') : t('settings.testConn')}
           </button>
         </div>
       </div>
@@ -316,6 +322,9 @@ function AIProviderSection({ initialValues, onSaved }) {
 }
 
 function IntegrationCard({ integration, initialValues, onSaved }) {
+  const { t } = useTranslation()
+  const name = t(integration.nameKey)
+  const description = t(integration.descriptionKey)
   const [values, setValues] = useState(
     Object.fromEntries(integration.fields.map(f => [f.key, initialValues[f.key] || '']))
   )
@@ -333,11 +342,11 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
     try {
       await saveSettings(values)
       setStatus('saved')
-      setStatusMsg('Settings saved.')
+      setStatusMsg(t('settings.settingsSaved'))
       onSaved(values)
     } catch {
       setStatus('error')
-      setStatusMsg('Failed to save.')
+      setStatusMsg(t('settings.saveFail'))
     } finally {
       setSaving(false)
     }
@@ -352,10 +361,10 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
       onSaved(values)
       await integration.test(values)
       setStatus('ok')
-      setStatusMsg('Connection successful!')
+      setStatusMsg(t('settings.connOk'))
     } catch (err) {
       setStatus('fail')
-      setStatusMsg(err.response?.data?.detail || 'Connection failed. Check your API key.')
+      setStatusMsg(err.response?.data?.detail || t('settings.connFail'))
     } finally {
       setTesting(false)
     }
@@ -366,20 +375,20 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
       <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{integration.name}</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">{name}</h3>
             {isConfigured ? (
-              <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">Connected</span>
+              <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">{t('settings.connected')}</span>
             ) : (
-              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">Not configured</span>
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{t('settings.notConfigured')}</span>
             )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{integration.description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
           <div className="flex gap-3 mt-2">
             <a href={integration.signupUrl} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-green-600 hover:underline">Get API key →</a>
+              className="text-xs text-green-600 hover:underline">{t('settings.getKey')}</a>
             {integration.docsUrl && (
               <a href={integration.docsUrl} target="_blank" rel="noopener noreferrer"
-                className="text-xs text-gray-400 hover:underline">Docs</a>
+                className="text-xs text-gray-400 hover:underline">{t('settings.docs')}</a>
             )}
           </div>
         </div>
@@ -388,7 +397,7 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
       <div className="p-5 space-y-4">
         {integration.fields.map(field => (
           <div key={field.key}>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{field.label}</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t(field.labelKey)}</label>
             <div className="relative">
               <input
                 type={show[field.key] || !field.secret ? 'text' : 'password'}
@@ -403,7 +412,7 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
                   onClick={() => setShow(s => ({ ...s, [field.key]: !s[field.key] }))}
                   className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600 text-xs"
                 >
-                  {show[field.key] ? 'Hide' : 'Show'}
+                  {show[field.key] ? t('common.hide') : t('common.show')}
                 </button>
               )}
             </div>
@@ -424,14 +433,14 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
             disabled={saving}
             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
           <button
             onClick={handleTest}
             disabled={testing || !values[integration.fields[0].key]}
             className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 transition-colors"
           >
-            {testing ? 'Testing…' : 'Test connection'}
+            {testing ? t('common.testing') : t('settings.testConn')}
           </button>
         </div>
       </div>
@@ -439,8 +448,37 @@ function IntegrationCard({ integration, initialValues, onSaved }) {
   )
 }
 
-function GitHubIcon() {
+function LanguageSection({ language, setLanguage }) {
+  const { t } = useTranslation()
   return (
+    <div className="p-5 flex items-center justify-between gap-4">
+      <div>
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('settings.language')}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          {t('settings.languageDesc')}
+        </p>
+      </div>
+      <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 shrink-0" role="group" aria-label={t('settings.language')}>
+        {LANGS.map((lng) => (
+          <button
+            key={lng}
+            onClick={() => setLanguage(lng)}
+            title={t(`settings.langName.${lng}`)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              language === lng
+                ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            {lng === 'en' ? 'EN' : lng === 'hi' ? 'हिं' : 'ગુ'}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function GitHubIcon() {  return (
     <svg viewBox="0 0 16 16" className="w-4 h-4 fill-current" aria-hidden="true">
       <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
         0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
@@ -455,7 +493,8 @@ function GitHubIcon() {
   )
 }
 
-export default function SettingsPage({ theme, setTheme }) {
+export default function SettingsPage({ theme, setTheme, language, setLanguage }) {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState({})
   const [loading, setLoading] = useState(true)
   const { updateSettings: updateAppSettings } = useAppSettings()
@@ -495,17 +534,17 @@ export default function SettingsPage({ theme, setTheme }) {
     }
   }
 
-  if (loading) return <p className="text-center py-20 text-gray-400">Loading…</p>
+  if (loading) return <p className="text-center py-20 text-gray-400">{t('common.loading')}</p>
 
   return (
     <div className="p-4 md:p-8 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">Settings</h1>
-      <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">Configure integrations and preferences</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{t('settings.title')}</h1>
+      <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">{t('settings.subtitle')}</p>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Profile</h2>
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">{t('settings.profile')}</h2>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display name</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('settings.displayName')}</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -518,22 +557,23 @@ export default function SettingsPage({ theme, setTheme }) {
               disabled={profileSaving || !profileName.trim()}
               className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
             >
-              {profileSaving ? 'Saving…' : 'Save'}
+              {profileSaving ? t('common.saving') : t('common.save')}
             </button>
           </div>
-          {profileStatus === 'saved' && <p className="text-sm text-green-600 mt-2">✓ Name updated.</p>}
-          {profileStatus === 'error' && <p className="text-sm text-red-500 mt-2">✗ Failed to save.</p>}
+          {profileStatus === 'saved' && <p className="text-sm text-green-600 mt-2">{t('settings.nameUpdated')}</p>}
+          {profileStatus === 'error' && <p className="text-sm text-red-500 mt-2">{t('settings.nameSaveFailed')}</p>}
         </div>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Appearance</h2>
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">{t('settings.appearance')}</h2>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+          <LanguageSection language={language} setLanguage={setLanguage} />
           <div className="p-5 flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Theme</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t('settings.theme')}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                Choose light, dark, or follow your device setting.
+                {t('settings.themeDesc')}
               </p>
             </div>
             <div className="flex rounded-lg bg-gray-100 dark:bg-gray-700 p-1 shrink-0">
@@ -544,15 +584,15 @@ export default function SettingsPage({ theme, setTheme }) {
                       ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                   }`}>
-                  {opt}
+                  {t(`settings.${opt}`)}
                 </button>
               ))}
             </div>
           </div>
 
           {[
-            { key: 'show_source_link', label: 'Show GitHub link', desc: 'Display a link to the source code in the sidebar' },
-            { key: 'show_version', label: 'Show version', desc: 'Display the app version number in the sidebar' },
+            { key: 'show_source_link', label: t('settings.showGithub'), desc: t('settings.showGithubDesc') },
+            { key: 'show_version', label: t('settings.showVersion'), desc: t('settings.showVersionDesc') },
           ].map(({ key, label, desc }) => {
             const enabled = settings[key] !== 'false'
             const toggle = async () => {
@@ -582,23 +622,23 @@ export default function SettingsPage({ theme, setTheme }) {
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Server</h2>
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">{t('settings.server')}</h2>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Connected server</p>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.connectedServer')}</p>
             <p className="text-sm font-mono text-gray-500 dark:text-gray-400 mt-0.5">{serverUrl || window.location.origin}</p>
           </div>
           <button
             onClick={handleChangeServer}
             className="shrink-0 text-sm border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            Change server
+            {t('settings.changeServer')}
           </button>
         </div>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Notifications</h2>
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">{t('settings.notifications')}</h2>
         <div className="space-y-3">
           <NotificationsSection />
           <NotificationRemindersSection
@@ -610,13 +650,13 @@ export default function SettingsPage({ theme, setTheme }) {
 
       <section className="mb-8">
         <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-          Integrations
+          {t('settings.integrations')}
         </h2>
         <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-          API keys are stored per account and are only accessible to you.
+          {t('settings.keysNote')}
           {user?.is_demo && (
             <span className="text-amber-600 dark:text-amber-400">
-              {' '}This is a public demo instance — enter keys at your own risk.
+              {t('settings.demoRisk')}
             </span>
           )}
         </p>
@@ -637,12 +677,12 @@ export default function SettingsPage({ theme, setTheme }) {
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">About</h2>
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">{t('settings.about')}</h2>
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">SproutVibe</p>
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('settings.appName')}</p>
             {appInfo?.version && (
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Version {appInfo.version}</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t('settings.version', { version: appInfo.version })}</p>
             )}
           </div>
           <a
@@ -652,7 +692,7 @@ export default function SettingsPage({ theme, setTheme }) {
             className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors shrink-0"
           >
             <GitHubIcon />
-            <span>View source</span>
+            <span>{t('nav.viewSource')}</span>
           </a>
         </div>
       </section>

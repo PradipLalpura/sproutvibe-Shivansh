@@ -13,7 +13,8 @@ Three things:
 
 1. **Read the full codebase** — backend (`FastAPI + SQLite/Postgres`), frontend (`React + Vite + Tailwind PWA`), species search (`Perenual + iNaturalist + FloraCodex`), one-shot AI care (`Anthropic/OpenAI`), photo upload with no analysis, all-English UI.
 2. **Wrote planning docs** — `IDEATION_AND_PHASES.md` (what + why + build order for the 4 tasks) and `SHIVANSH_CHANGELOG.md` (version tracker).
-3. **Built Phase 0 + Phase 1** — env placeholders + pinned Groq/Cerebras models, then the 62-entry Indian plants catalogue with enriched search (`tulsi`/`तुलसी`/`તુલસી` all work), category/seed filters, and Indian-first UI. 44 backend tests green. Phases 2–6 not started.
+3. **Built Phase 0 + Phase 1** — env placeholders + pinned Groq/Cerebras models, then the 62-entry Indian plants catalogue with enriched search (`tulsi`/`तुलसी`/`તુલસી` all work), category/seed filters, and Indian-first UI. 45 backend tests green.
+4. **Built Phase 2** — full UI in English, Hindi, and Gujarati (`i18next`, ~150 keys, human-reviewed): language switcher in Settings that syncs to my account, species search answers in my language, dates and "3 days ago" also in Hindi/Gujarati. 21 frontend tests green. Phases 3–6 not started.
 
 ## 3. The 4 tasks, explained like I would in a viva
 
@@ -68,8 +69,8 @@ A temporary Groq key was shared for development. It is **remembered for future p
 - *Why Groq + Cerebras?* Fast inference, OpenAI-compatible API so one fallback chain works, free-tier friendly for college.
 - *Why no vector DB?* Overkill for MVP; SQL + catalogue grounding is precise, offline-capable, and explainable. Vectors are optional later.
 - *What if AI is wrong?* Confidence score + disclaimer + “clearer photo” path + advise local expert for edible/medicinal use.
-- *What is not done?* Phases 2–6 (translation, Groq/Cerebras chat + scan, polish). Phase 0 + 1 are built and tested.
+- *What is not done?* Phases 3–6 (Groq/Cerebras chat + scan, polish). Phases 0–2 are built and tested.
 
 ## 9. Current limits (said openly)
 
-Phase 0 + 1 done and tested. Model IDs must still be re-verified at Phase 3 build time (Groq/Cerebras change fast). Hindi/Gujarati strings need human review, not machine translation. Camera needs real-device testing. Perenual free limit (100/day) is why catalogue-first matters.
+Phase 0–2 done and tested. Model IDs must still be re-verified at Phase 3 build time (Groq/Cerebras change fast). Camera needs real-device testing. Perenual free limit (100/day) is why catalogue-first matters.

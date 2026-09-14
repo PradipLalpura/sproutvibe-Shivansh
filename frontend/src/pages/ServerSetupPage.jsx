@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { setServerUrl } from '../api/client'
 import axios from 'axios'
 
@@ -14,6 +15,7 @@ async function testConnection(url) {
 }
 
 export default function ServerSetupPage({ onConnected }) {
+  const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [status, setStatus] = useState(null) // null | 'checking' | 'ok' | 'error'
   const [errorMsg, setErrorMsg] = useState('')
@@ -49,10 +51,10 @@ export default function ServerSetupPage({ onConnected }) {
       setStatus('error')
       setErrorMsg(
         err.code === 'ECONNABORTED' || err.message.includes('timeout')
-          ? 'Connection timed out. Is the server running and reachable?'
+          ? t('server.timeout')
           : err.response
-            ? `Server returned ${err.response.status}. Check the URL.`
-            : err.message || 'Could not reach server. Check the URL and try again.'
+            ? t('server.badStatus', { status: err.response.status })
+            : err.message || t('server.unreachable')
       )
     }
   }
@@ -63,8 +65,8 @@ export default function ServerSetupPage({ onConnected }) {
 
         <div className="text-center mb-8">
           <div className="text-6xl mb-3">🌱</div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome to SproutVibe</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Enter the URL of your SproutVibe server to get started</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('server.welcome')}</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('server.subtitle')}</p>
         </div>
 
         {autoDetected && status !== 'error' && (
@@ -76,17 +78,17 @@ export default function ServerSetupPage({ onConnected }) {
 
         <form onSubmit={handleConnect} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Server URL</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('server.serverUrl')}</label>
             <input
               type="url"
               value={url}
               onChange={(e) => { setUrl(e.target.value); setStatus(null) }}
-              placeholder="https://sprout.yourdomain.com"
+              placeholder={t('server.urlPlaceholder')}
               required
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              This is the address where you're hosting Sprout, e.g. <span className="font-mono">http://192.168.1.100:3000</span>
+              {t('server.urlHint')}, e.g. <span className="font-mono">http://192.168.1.100:3000</span>
             </p>
           </div>
 
@@ -98,7 +100,7 @@ export default function ServerSetupPage({ onConnected }) {
 
           {status === 'ok' && (
             <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-xl p-3 text-sm text-green-700 dark:text-green-400">
-              ✓ Connected! Redirecting…
+              {t('server.connectedRedirect')}
             </div>
           )}
 
@@ -107,13 +109,13 @@ export default function ServerSetupPage({ onConnected }) {
             disabled={status === 'checking' || status === 'ok' || !url.trim()}
             className="w-full bg-green-600 text-white py-3 rounded-xl font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
-            {status === 'checking' ? 'Connecting…' : status === 'ok' ? 'Connected!' : 'Connect to server'}
+            {status === 'checking' ? t('common.connecting') : status === 'ok' ? t('server.connected') : t('server.connect')}
           </button>
         </form>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          Self-hosting Sprout?{' '}
-          <a href="https://github.com" className="text-green-600 dark:text-green-400 hover:underline">View setup docs</a>
+          {t('server.selfHosting')}{' '}
+          <a href="https://github.com" className="text-green-600 dark:text-green-400 hover:underline">{t('server.setupDocs')}</a>
         </p>
       </div>
     </div>

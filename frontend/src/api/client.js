@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getStoredLanguage } from '../i18n'
 
 export const SERVER_URL_KEY = 'sprout_server_url'
 
@@ -22,6 +23,7 @@ api.interceptors.request.use((config) => {
   config.baseURL = serverUrl ? `${serverUrl}/api` : '/api'
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
+  config.headers['Accept-Language'] = getStoredLanguage()
   return config
 })
 

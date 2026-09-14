@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../hooks/useAuth'
 import { getVersion } from '../api/settings'
 import { useAppSettings } from '../hooks/useAppSettings'
@@ -22,6 +23,7 @@ function GitHubIcon() {
 }
 
 function DemoBanner() {
+  const { t } = useTranslation()
   const { user, kioskMode } = useAuth()
   const [dismissed, setDismissed] = useState(false)
   const navigate = useNavigate()
@@ -29,27 +31,28 @@ function DemoBanner() {
   return (
     <div className="bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-start justify-between gap-4">
       <p className="flex-1 text-sm text-amber-800 dark:text-amber-300">
-        🧪 <strong>Demo mode</strong> — You&apos;re exploring SproutVibe. All data resets nightly.
-        {' '}For plant search and AI suggestions, add your own API keys in{' '}
-        <button onClick={() => navigate('/settings')} className="underline font-medium">Settings</button>.
+        🧪 <strong>{t('nav.demoTitle')}</strong> — {t('nav.demoBefore')}{' '}
+        <button onClick={() => navigate('/settings')} className="underline font-medium">{t('nav.settings')}</button>
+        {t('nav.demoAfter')}
       </p>
       <button
         onClick={() => setDismissed(true)}
         className="text-amber-500 hover:text-amber-700 text-xs shrink-0 mt-0.5"
       >
-        Dismiss
+        {t('common.dismiss')}
       </button>
     </div>
   )
 }
 
 const NAV = [
-  { to: '/', icon: '🏠', label: 'Home' },
-  { to: '/plants/new', icon: '➕', label: 'Add plant' },
-  { to: '/settings', icon: '⚙️', label: 'Settings' },
+  { to: '/', icon: '🏠', key: 'home' },
+  { to: '/plants/new', icon: '➕', key: 'addPlant' },
+  { to: '/settings', icon: '⚙️', key: 'settings' },
 ]
 
 export default function Layout({ children }) {
+  const { t } = useTranslation()
   const { signOut, user } = useAuth()
   const location = useLocation()
   const [appInfo, setAppInfo] = useState(null)
@@ -75,7 +78,7 @@ export default function Layout({ children }) {
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
-          {NAV.map(({ to, icon, label }) => {
+          {NAV.map(({ to, icon, key }) => {
             const active = location.pathname === to
             return (
               <Link
@@ -88,7 +91,7 @@ export default function Layout({ children }) {
                 }`}
               >
                 <span className="text-base">{icon}</span>
-                {label}
+                {t(`nav.${key}`)}
               </Link>
             )
           })}
@@ -100,7 +103,7 @@ export default function Layout({ children }) {
             onClick={signOut}
             className="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors"
           >
-            Sign out
+            {t('nav.signOut')}
           </button>
         </div>
 
@@ -112,7 +115,7 @@ export default function Layout({ children }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                title="View source on GitHub"
+                title={t('nav.viewSource')}
               >
                 <GitHubIcon />
               </a>
@@ -133,7 +136,7 @@ export default function Layout({ children }) {
         <header className="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex justify-between items-center sticky top-0 z-10" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
           <span className="text-green-700 font-bold text-lg">🌱 SproutVibe</span>
           <button onClick={signOut} className="text-gray-400 hover:text-gray-600 text-sm">
-            Sign out
+            {t('nav.signOut')}
           </button>
         </header>
 
@@ -145,7 +148,7 @@ export default function Layout({ children }) {
 
         {/* Mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex z-10" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-          {NAV.map(({ to, icon, label }) => {
+          {NAV.map(({ to, icon, key }) => {
             const active = location.pathname === to
             return (
               <Link
@@ -156,7 +159,7 @@ export default function Layout({ children }) {
                 }`}
               >
                 <span className="text-xl">{icon}</span>
-                {label}
+                {t(`nav.${key}`)}
               </Link>
             )
           })}
