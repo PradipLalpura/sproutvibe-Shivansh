@@ -1,3 +1,10 @@
+# 1.0.0 (2026-09-14)
+
+
+### Features
+
+* phase 0 foundations and phase 1 Indian plants catalogue with enriched species API ([97ba33b](https://github.com/PradipLalpura/sproutvibe-Shivansh/commit/97ba33b47258900fd0700c3d83bdb3b1fc7d5809))
+
 ## [1.2.2](https://github.com/jorisdejosselin/sproutvibe/compare/v1.2.1...v1.2.2) (2026-08-05)
 
 ## [1.2.1](https://github.com/jorisdejosselin/sproutvibe/compare/v1.2.0...v1.2.1) (2026-08-01)
