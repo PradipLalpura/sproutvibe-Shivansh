@@ -1,0 +1,23 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Amsterdam",
+  "labels": ["dependencies", "chore"],
+  "packageRules": [
+    {
+      "description": "Single chore PR for all non-major dependency updates",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "chore dependencies (non-major)",
+      "groupSlug": "chore-deps-non-major",
+      "semanticCommitType": "chore",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Keep major updates separate and manual",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

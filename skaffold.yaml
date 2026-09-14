@@ -1,0 +1,98 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: sprout
+
+build:
+  platforms:
+    - linux/amd64
+  artifacts:
+    - image: sprout-backend
+      context: backend
+    - image: sprout-frontend
+      context: frontend
+      docker:
+        buildArgs:
+          VITE_DEV_TOOLBAR: "true"
+  tagPolicy:
+    dateTime:
+      format: "2006-01-02t15-04-05"   # unique per build, no special chars — use --tag v0.1.0 for releases
+      timezone: "UTC"
+
+deploy:
+  helm:
+    releases:
+      - name: sprout-dev   # to target a different namespace: skaffold dev --namespace <ns>
+        remoteChart: app-template
+        repo: https://bjw-s-labs.github.io/helm-charts
+        version: "4.6.2"
+        namespace: sprout-dev
+        createNamespace: true
+        upgradeOnChange: true   # remote charts default to false; must be explicit
+        valuesFiles:
+          - deploy/helm-values.yaml
+          - deploy/helm-values.dev.yaml
+        setValueTemplates:
+          controllers.backend.containers.main.image.repository: "{{.IMAGE_REPO_sprout_backend}}"
+          controllers.backend.containers.main.image.tag: "{{.IMAGE_TAG_sprout_backend}}@{{.IMAGE_DIGEST_sprout_backend}}"
+          controllers.frontend.containers.main.image.repository: "{{.IMAGE_REPO_sprout_frontend}}"
+          controllers.frontend.containers.main.image.tag: "{{.IMAGE_TAG_sprout_frontend}}@{{.IMAGE_DIGEST_sprout_frontend}}"
+          controllers.frontend.containers.main.env.BACKEND_HOST.value: "{{.RELEASE}}-backend"
+          route.main.hostnames[0]: "{{.RELEASE}}.{{.BASE_DOMAIN}}"
+          route.pgweb.hostnames[0]: "{{.RELEASE}}-postgres.{{.BASE_DOMAIN}}"
+
+portForward:
+  - resourceType: service
+    resourceName: sprout-dev-frontend
+    namespace: sprout-dev
+    port: 8080
+    localPort: 8080
+
+profiles:
+  # Generic: spins up a fresh, empty postgres:16-alpine container. Works for
+  # any self-hoster, no assumptions beyond what's already in this repo.
+  - name: postgres
+    patches:
+      - op: add
+        path: /deploy/helm/releases/0/valuesFiles/-
+        value: deploy/helm-values.skaffold-overlay.yaml
+      # No `.value` suffix: DATABASE_URL is scalar shorthand in the base
+      # values files (see helm-values.yaml), and --set-string can't convert
+      # an existing scalar into a map via a dotted path — it errors instead.
+      - op: add
+        path: /deploy/helm/releases/0/setValueTemplates/controllers.backend.containers.main.env.DATABASE_URL
+        value: "postgresql://sprout:sprout@{{.RELEASE}}-postgres:5432/sprout"
+      - op: add
+        path: /deploy/helm/releases/0/setValueTemplates/controllers.backend.initContainers.wait-for-postgres.env.POSTGRES_HOST.value
+        value: "{{.RELEASE}}-postgres"
+      - op: add
+        path: /deploy/helm/releases/0/setValueTemplates/controllers.pgweb.containers.main.env.PGWEB_DATABASE_URL.value
+        value: "postgres://sprout:sprout@{{.RELEASE}}-postgres:5432/sprout?sslmode=disable"
+      - op: add
+        path: /deploy/helm/releases/0/setValueTemplates/controllers.pgweb.initContainers.wait-for-postgres.env.POSTGRES_HOST.value
+        value: "{{.RELEASE}}-postgres"
+
+  # Homelab-specific: dev Postgres is a CNPG cluster cloned from prod's
+  # existing backup archive instead of starting empty. See
+  # deploy/helm-values.skaffold-overlay-cnpg.yaml and
+  # deploy/cnpg-dev-cluster.yaml for what that assumes about the cluster.
+  #
+  # The CNPG cluster is NOT deployed here via manifests/kubectl on purpose —
+  # `skaffold dev` deletes everything it deploys on exit (Ctrl+C), which
+  # would destroy the cloned cluster and force a fresh ~40s prod clone on
+  # every single dev session instead of once, ever. This profile only wires
+  # the app up to talk to the cluster.
+  #
+  # Prefer `scripts/dev-postgres-cnpg.sh` over invoking this profile
+  # directly: it creates the cluster first if it's missing. Running the
+  # profile against a missing cluster is not a clean failure — the init
+  # containers just loop `nc: bad address sprout-dev-rw...` forever.
+  #
+  # A skaffold hook can't do that job: the helm deployer has no hooks in
+  # v4beta11, and deploy.kubectl hooks fire *after* the helm deploy (and an
+  # empty kubectl deployer fails the run with "nothing to deploy").
+  - name: postgres-cnpg
+    patches:
+      - op: add
+        path: /deploy/helm/releases/0/valuesFiles/-
+        value: deploy/helm-values.skaffold-overlay-cnpg.yaml
