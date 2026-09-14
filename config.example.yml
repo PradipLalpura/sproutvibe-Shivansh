@@ -11,3 +11,11 @@ integrations:
   perenual_api_key: ""       # https://perenual.com/user/developer
   anthropic_api_key: ""      # https://console.anthropic.com/
   openai_api_key: ""         # https://platform.openai.com/api-keys
+  # Phase 3+ — Groq primary + Cerebras fallback (chat/scan). Never commit real keys.
+  groq_api_key: ""           # https://console.groq.com/keys
+  groq_chat_model: "meta-llama/llama-4-scout-17b-16e-instruct"
+  groq_vision_model: "meta-llama/llama-4-scout-17b-16e-instruct"
+  cerebras_api_key: ""       # https://cloud.cerebras.ai/
+  cerebras_chat_model: "qwen-3.8-27b"
+  cerebras_vision_model: "gemma-4-31b"
+  default_language: "en"     # en | hi | gu

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getPlant, updatePlant, deletePlant, uploadPlantPhoto } from '../api/plants'
+import { getPlant, updatePlant, deletePlant, uploadPlantPhoto, searchIndianCatalogue } from '../api/plants'
 import { getSchedules, createSchedule, updateSchedule, markDone, deleteSchedule } from '../api/watering'
 import { resolveMediaUrl } from '../api/client'
 import { getEntries } from '../api/journal'
@@ -29,6 +29,7 @@ export default function PlantDetailPage() {
   const [editForm, setEditForm] = useState({})
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoError, setPhotoError] = useState(null)
+  const [indianEntry, setIndianEntry] = useState(null)
 
   const load = async () => {
     const [p, s, e] = await Promise.all([getPlant(id), getSchedules(id), getEntries(id)])
@@ -36,6 +37,17 @@ export default function PlantDetailPage() {
     setSchedules(s)
     setEntries(e)
     setEditForm({ name: p.name, species: p.species || '', location: p.location || '', notes: p.notes || '' })
+    // Phase 1: resolve Indian names for the stored species (Latin join key).
+    if (p.species) {
+      searchIndianCatalogue({ q: p.species, limit: 10 })
+        .then((hits) => {
+          const exact = hits.find((h) => (h.scientific_name || '').toLowerCase() === p.species.toLowerCase())
+          setIndianEntry(exact || null)
+        })
+        .catch(() => setIndianEntry(null))
+    } else {
+      setIndianEntry(null)
+    }
   }
 
   useEffect(() => {
@@ -161,6 +173,21 @@ export default function PlantDetailPage() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{plant.name}</h1>
                 {plant.species && <p className="text-gray-500 dark:text-gray-400 text-sm italic">{plant.species}</p>}
+                {indianEntry && (
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {[indianEntry.indian_names?.hi, indianEntry.indian_names?.gu].filter(Boolean).join(' · ')}
+                    </p>
+                    {indianEntry.category && (
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                        {indianEntry.category.replace('_', ' ')}
+                      </span>
+                    )}
+                    {indianEntry.kind === 'seed' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">seed</span>
+                    )}
+                  </div>
+                )}
                 {plant.location && <p className="text-gray-400 dark:text-gray-500 text-sm">📍 {plant.location}</p>}
               </div>
               <div className="flex gap-2">

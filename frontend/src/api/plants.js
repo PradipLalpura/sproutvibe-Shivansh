@@ -12,10 +12,17 @@ export const uploadPlantPhoto = (id, file) => {
   return api.post(`/plants/${id}/photo`, form).then(r => r.data)
 }
 
-export const searchSpecies = (q) => api.get('/plants/species/search', { params: { q } }).then(r => r.data)
-export const getSpecies = (id, source = 'perenual') => api.get(`/plants/species/${id}`, { params: { source } }).then(r => r.data)
-export const getWikiDescription = (scientificName) =>
-  api.get('/plants/species/wiki-description', { params: { scientific_name: scientificName } }).then(r => r.data)
+export const searchSpecies = (q, { lang = 'en', category, kind } = {}) =>
+  api.get('/plants/species/search', { params: { q, lang, category, kind } }).then(r => r.data)
+export const getSpecies = (id, source = 'perenual', lang = 'en') =>
+  api.get(`/plants/species/${id}`, { params: { source, lang } }).then(r => r.data)
+export const getWikiDescription = (scientificName, lang = 'en') =>
+  api.get('/plants/species/wiki-description', { params: { scientific_name: scientificName, lang } }).then(r => r.data)
+
+// Phase 1 — Indian catalogue (works with no external API keys).
+export const getCategories = () => api.get('/plants/categories').then(r => r.data)
+export const searchIndianCatalogue = ({ q = '', category, kind, lang = 'en', limit = 20, offset = 0 } = {}) =>
+  api.get('/plants/indian-catalogue', { params: { q, category, kind, lang, limit, offset } }).then(r => r.data)
 
 export const getAiCare = (commonName, scientificName) =>
   api.post('/plants/species/ai-care', { common_name: commonName, scientific_name: scientificName }).then(r => r.data)

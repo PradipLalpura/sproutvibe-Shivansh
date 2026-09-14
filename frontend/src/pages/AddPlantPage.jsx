@@ -19,6 +19,22 @@ const SOURCE_CONFIG = {
   perenual:    { label: 'Perenual',    cls: 'bg-blue-50 text-blue-500 dark:bg-blue-900/30 dark:text-blue-400' },
   floracodex:  { label: 'FloraCodex',  cls: 'bg-purple-50 text-purple-500 dark:bg-purple-900/30 dark:text-purple-400' },
   inaturalist: { label: 'iNaturalist', cls: 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400' },
+  indian_catalogue: { label: 'Indian', cls: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' },
+}
+
+const CATEGORY_OPTIONS = ['', 'vegetable', 'fruit', 'flower', 'herb_medicinal', 'spice', 'grain_pulse', 'tree', 'succulent', 'other']
+const KIND_OPTIONS = ['', 'plant', 'seed']
+
+// Display name first (Indian name when available), Latin kept small.
+function displayOf(r) {
+  return r.display_name || r.common_name || r.scientific_name
+}
+
+function indianLine(r) {
+  if (!r.indian_names) return null
+  const { hi, gu } = r.indian_names
+  if (!hi && !gu) return null
+  return [hi, gu].filter(Boolean).join(' · ')
 }
 
 // Suggested schedules based on species data — extend as needed
@@ -44,19 +60,21 @@ export default function AddPlantPage() {
   const [selected, setSelected] = useState(null)      // full species detail
   const [apiUnavailable, setApiUnavailable] = useState(false)
   const [schedules, setSchedules] = useState([])       // suggested care tasks
+  const [category, setCategory] = useState('')
+  const [kind, setKind] = useState('')
   const debouncedQuery = useDebounce(query, 400)
 
   useEffect(() => {
     if (!debouncedQuery.trim() || apiUnavailable) { setResults([]); return }
     setSearching(true)
-    searchSpecies(debouncedQuery)
+    searchSpecies(debouncedQuery, { category: category || undefined, kind: kind || undefined })
       .then(setResults)
       .catch((err) => {
         if (err.response?.status === 503) setApiUnavailable(true)
         setResults([])
       })
       .finally(() => setSearching(false))
-  }, [debouncedQuery])
+  }, [debouncedQuery, category, kind])
 
   const handleSelect = async (preview) => {
     setResults([])
@@ -98,7 +116,7 @@ export default function AddPlantPage() {
 
       setForm((f) => ({
         ...f,
-        name: f.name || species.common_name,
+        name: f.name || displayOf(species),
         species: species.scientific_name || species.common_name,
         notes: f.notes || species.description || '',
         photo_url: f.photo_url || species.thumbnail || null,
@@ -107,7 +125,7 @@ export default function AddPlantPage() {
       setSelected(preview)
       setForm((f) => ({
         ...f,
-        name: f.name || preview.common_name,
+        name: f.name || displayOf(preview),
         species: preview.scientific_name || preview.common_name,
         photo_url: f.photo_url || preview.thumbnail || null,
       }))
@@ -158,7 +176,7 @@ export default function AddPlantPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="e.g. Monstera, Snake plant, Fiddle leaf fig…"
+              placeholder="e.g. Tulsi / तुलसी / Haldi / Methi…"
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
             />
             {(searching || loadingDetails) && (
@@ -166,6 +184,32 @@ export default function AddPlantPage() {
                 {loadingDetails ? 'Loading details…' : 'Searching…'}
               </span>
             )}
+            <div className="flex gap-2 mt-2">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                title="Filter by category"
+              >
+                {CATEGORY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>{c === '' ? 'All categories' : c.replace('_', ' ')}</option>
+                ))}
+              </select>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value)}
+                className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                title="Plant or seed"
+              >
+                {KIND_OPTIONS.map((k) => (
+                  <option key={k} value={k}>{k === '' ? 'Plant + seed' : k}</option>
+                ))}
+              </select>
+              {(category || kind) && (
+                <button type="button" onClick={() => { setCategory(''); setKind('') }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+              )}
+            </div>
             {results.length > 0 && (
               <div className="absolute z-20 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
                 {results.map((r) => (
@@ -182,12 +226,20 @@ export default function AddPlantPage() {
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{r.common_name || r.scientific_name}</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-100 text-sm truncate">{displayOf(r)}</p>
                         {(() => { const src = SOURCE_CONFIG[r.source] || { label: r.source, cls: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400' }; return (
                           <span className={`shrink-0 text-xs px-1.5 py-0.5 rounded font-medium ${src.cls}`}>{src.label}</span>
                         )})()}
+                        {r.kind === 'seed' && (
+                          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">seed</span>
+                        )}
                       </div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 italic truncate">{r.scientific_name}</p>
+                      {indianLine(r) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{indianLine(r)}</p>
+                      )}
+                      <p className="text-xs text-gray-400 dark:text-gray-500 italic truncate">
+                        {r.scientific_name}{r.category ? ` · ${r.category.replace('_', ' ')}` : ''}
+                      </p>
                     </div>
                   </button>
                 ))}
@@ -204,8 +256,22 @@ export default function AddPlantPage() {
                 <img src={selected.thumbnail} className="w-16 h-16 rounded-xl object-cover shrink-0" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-gray-800 dark:text-gray-100">{selected.common_name}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-800 dark:text-gray-100">{displayOf(selected)}</p>
+                  {selected.kind === 'seed' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">seed — sow, don&apos;t transplant</span>
+                  )}
+                  {selected.category && (
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">{selected.category.replace('_', ' ')}</span>
+                  )}
+                </div>
+                {indianLine(selected) && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{indianLine(selected)}</p>
+                )}
                 <p className="text-sm text-gray-500 dark:text-gray-400 italic">{selected.scientific_name}</p>
+                {selected.common_name && selected.common_name !== displayOf(selected) && (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">English: {selected.common_name}</p>
+                )}
               </div>
               <button type="button" onClick={() => { setSelected(null); setSchedules([]); setForm(f => ({ ...f, photo_url: null })) }}
                 className="text-gray-300 dark:text-gray-600 hover:text-gray-500 self-start text-lg leading-none">×</button>
@@ -263,7 +329,7 @@ export default function AddPlantPage() {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
-            placeholder="e.g. My Monstera"
+            placeholder="e.g. My Tulsi"
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
@@ -273,7 +339,7 @@ export default function AddPlantPage() {
             type="text"
             value={form.species}
             onChange={(e) => setForm({ ...form, species: e.target.value })}
-            placeholder="e.g. Monstera deliciosa"
+            placeholder="e.g. Ocimum tenuiflorum (Tulsi)"
             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>

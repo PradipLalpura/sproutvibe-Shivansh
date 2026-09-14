@@ -22,6 +22,18 @@
 ### Fixed
 - None.
 
+## [0.2.0] - 2026-09-14
+
+### Added — Phase 0 + Phase 1
+- **Phase 0**: Groq/Cerebras models pinned from official docs (Groq `meta-llama/llama-4-scout-17b-16e-instruct`, Cerebras `qwen-3.8-27b` chat / `gemma-4-31b` vision), placeholders in `.env.example` + `backend/.env.example` + `config.example.yml` (no keys), file locations locked in `IDEATION_AND_PHASES.md`.
+- **Phase 1 — Indian catalogue**: `backend/data/indian_plants.json` (62 entries: Tulsi, Haldi, Methi, Palak, Ashwagandha…) + loader `backend/data/indian_plants.py` (transliteration-insensitive search, `display_name` per lang, category/kind). `SpeciesResult` extended (backward compatible), `GET /plants/species/search?q=&lang=&category=&kind=`, `GET /plants/categories`, `GET /plants/indian-catalogue`, `GET /plants/species/{id}?source=indian_catalogue&lang=`, Wikipedia hi/gu fallback.
+- **Phase 1 — frontend**: `AddPlantPage` shows Indian name first + category/seed chips + filters, `PlantDetailPage` shows Hindi/Gujarati line; `api/plants.js` extended with defaults (old calls still work).
+- **Tests**: `backend/tests/test_indian_catalogue.py` (10 tests: 3-script Tulsi, filters, validation, backward compat). Full suite: 44 passed.
+
+### Notes
+- Temp Groq key (shared 2026-09-14) used for docs verification only — never committed.
+- Next: Phase 2 i18n.
+
 ## [0.1.0] - 2026-09-14
 
 ### Added

@@ -1,8 +1,8 @@
 # SproutVibe-Shivansh — Ideation & Phases
 
 > Scope owner: Shivansh team (fork of `sproutvibe-main`)
-> Date: 2026-09-14 (updated: RAG/context decision recorded, phases NOT executed)
-> Status: **Planning only — no code changes yet**
+> Date: 2026-09-14 (updated: Phase 0 + Phase 1 done)
+> Status: **Phase 0 + Phase 1 implemented and tested — Phases 2–6 not started**
 > Source codebase analysed: `backend/routes/plants.py`, `backend/ai/care.py`, `backend/core/config.py`, `frontend/src/api/plants.js`, `README.md`, `CHANGELOG.md`
 > Key note: temporary Groq key shared by owner is **remembered for future phases only — never committed** (env/Setting at build time). See §5.
 > Companion: `EXPLANATION.md` (human/viva story) + `SHIVANSH_CHANGELOG.md` (version tracker).
@@ -76,10 +76,10 @@ Indian users search for `Tulsi / Haldi / Dhaniya / Methi / Ashwagandha / Palak /
 - Missing mapping → `indian_names: null`, UI falls back to `common_name`.
 
 ### 1.3 Acceptance criteria
-- [ ] Search `tulsi`, `तुलसी`, `તુલસી` all return Tulsi with Hindi + Gujarati names.
-- [ ] `category` + `kind` filters work; catalogue works with no Perenual key.
-- [ ] Old clients ignoring new fields still work.
-- [ ] Tests: catalogue lookup, transliteration normalisation, enrichment merge.
+- [x] Search `tulsi`, `तुलसी`, `તુલસી` all return Tulsi with Hindi + Gujarati names.
+- [x] `category` + `kind` filters work; catalogue works with no Perenual key.
+- [x] Old clients ignoring new fields still work.
+- [x] Tests: catalogue lookup, transliteration normalisation, enrichment merge.
 
 ---
 
@@ -209,21 +209,27 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 
 ## 6. Phases (build order — each phase shippable)
 
-### Phase 0 — Foundations & docs (0.5–1 day) ✅ this commit
-- [x] This file + `SHIVANSH_CHANGELOG.md`.
-- [ ] Decide exact file locations for catalogue + locales + chat/scan routes (proposed below).
-- [ ] Pin + verify current Groq/Cerebras vision model IDs from official docs.
-- [ ] Add `.env.example` placeholders (no keys).
+### Phase 0 — Foundations & docs (0.5–1 day) ✅ done 2026-09-14
+- [x] This file + `SHIVANSH_CHANGELOG.md` + `EXPLANATION.md`.
+- [x] File locations locked (no new top-level folders):
+  - Catalogue + knowledge: `backend/data/indian_plants.json`, `backend/data/plant_knowledge.md` (Phase 5), loader `backend/data/__init__.py` + `backend/data/indian_plants.py`.
+  - Backend: `backend/routes/chat.py`, `backend/routes/scan.py`, `backend/ai/providers.py`, `backend/ai/agent.py`, `backend/ai/vision.py`, `backend/models/chat.py`, `backend/models/plant_scan.py` (no `indian_plant.py` table — JSON-only MVP, Latin stays join key).
+  - Frontend: `frontend/src/i18n.js`, `frontend/src/locales/{en,hi,gu}.json`, `frontend/src/api/chat.js`, `frontend/src/api/scan.js`, `frontend/src/pages/ChatPage.jsx`, `frontend/src/pages/ScanPage.jsx`, `frontend/src/components/ChatWidget.jsx`.
+  - Tests: `backend/tests/test_indian_catalogue.py`, `test_chat.py`, `test_scan.py`.
+- [x] Groq/Cerebras models pinned + verified 2026-09-14 from official docs:
+  - Groq base `https://api.groq.com/openai/v1` — chat+vision `meta-llama/llama-4-scout-17b-16e-instruct` (alt `qwen/qwen3.6-27b`), JSON mode + tool use, 5 images.
+  - Cerebras base `https://api.cerebras.ai/v1` — chat `qwen-3.8-27b` (`reasoning_effort=none`), vision `gemma-4-31b` (base64 data-URI only, no external URLs; fallback `qwen-3.8-27b`).
+- [x] `.env.example` + `backend/.env.example` + `config.example.yml` placeholders added (no keys). Temp Groq key kept out of repo, for local/dev env only.
 
-### Phase 1 — Indian names catalogue + API category (2–4 days)
+### Phase 1 — Indian names catalogue + API category ✅ done 2026-09-14
 - Backend:
-  - `backend/data/indian_plants.json` (MVP 50–100) + loader + `backend/models/indian_plant.py` (or JSON-only MVP if DB migration risk high).
-  - Extend `SpeciesResult` (+ `indian_names, display_name, category, kind`), enrich in `routes/plants.py`.
-  - `GET /plants/categories`, `GET /plants/indian-catalogue`, `?lang=&category=&kind=` on search/detail, Wikipedia lang fallback.
+  - [x] `backend/data/indian_plants.json` (62 entries) + loader `backend/data/indian_plants.py` (JSON-only, no DB table — Latin stays join key).
+  - [x] Extended `SpeciesResult` (+ `indian_names, display_name, category, kind`), enriched in `routes/plants.py`.
+  - [x] `GET /plants/categories`, `GET /plants/indian-catalogue`, `?lang=&category=&kind=` on search/detail, Wikipedia hi/gu fallback.
 - Frontend:
-  - `AddPlantPage` + `PlantDetailPage` display_name first, filter chips, placeholder examples.
-- Tests: `backend/tests/test_indian_catalogue.py`, frontend search render test.
-- Done when §1.3 passes.
+  - [x] `AddPlantPage` + `PlantDetailPage` display_name first, filter chips, placeholder examples.
+- Tests: [x] `backend/tests/test_indian_catalogue.py` (10 tests) + full suite 44 passed.
+- Done: §1.3 all checked.
 
 ### Phase 2 — i18n EN→HI/GU (2–3 days, can overlap Phase 1 frontend)
 - Add `i18next + react-i18next + detector` (pinned), `src/locales/{en,hi,gu}.json`, `src/i18n.js`, `api/client.js` language header.
@@ -291,5 +297,7 @@ frontend/src/components/ChatWidget.jsx
 
 ---
 
-## 8. What is explicitly NOT in this doc commit
-No backend/frontend code, no dependency installs, no model keys, no DB migrations. Only planning files. Phases remain unexecuted per owner instruction 2026-09-14; temporary Groq key remembered privately, not stored in repo.
+## 8. Build log
+- 2026-09-14 docs: analysis + planning files only (no code).
+- 2026-09-14 Phase 0: models pinned (Groq scout / Cerebras qwen-3.8 + gemma-4), env placeholders, file locations locked.
+- 2026-09-14 Phase 1: catalogue (62 entries) + enriched API + frontend display + 10 new tests (44 total green). Temporary Groq key remembered privately, never stored in repo. Phases 2–6 not started.

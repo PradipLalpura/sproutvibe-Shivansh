@@ -18,6 +18,14 @@ from ai import (
 )
 from core.database import get_db
 from core.security import get_current_user
+from data.indian_plants import (
+    VALID_CATEGORIES,
+    VALID_KINDS,
+    VALID_LANGS,
+    enrich_species,
+    list_categories,
+    search_catalogue,
+)
 from models.plant import Plant
 from models.user import User
 
@@ -50,6 +58,13 @@ def _clean_list(value) -> list[str] | None:
     return None  # was a paywall string
 
 
+class IndianNames(BaseModel):
+    hi: str | None = None
+    gu: str | None = None
+    hi_translit: str | None = None
+    gu_translit: str | None = None
+
+
 class SpeciesResult(BaseModel):
     id: str
     common_name: str
@@ -60,7 +75,51 @@ class SpeciesResult(BaseModel):
     sunlight: list[str] | None
     cycle: str | None
     description: str | None
-    source: str = "perenual"  # perenual | inaturalist | floracodex
+    source: str = "perenual"  # perenual | inaturalist | floracodex | indian_catalogue
+    # Phase 1 — Indian catalogue enrichment (optional, backward compatible).
+    indian_names: IndianNames | None = None
+    display_name: str | None = None
+    category: str | None = None
+    kind: str | None = None  # plant | seed
+
+
+def _check_lang(lang: str) -> str:
+    lang = (lang or "en").lower()
+    if lang not in VALID_LANGS:
+        raise HTTPException(status_code=422, detail="lang must be one of: en, hi, gu")
+    return lang
+
+
+def _check_category(category: str | None) -> str | None:
+    if category is None:
+        return None
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"unknown category: {category}. Valid: {sorted(VALID_CATEGORIES)}",
+        )
+    return category
+
+
+def _check_kind(kind: str | None) -> str | None:
+    if kind is None:
+        return None
+    if kind not in VALID_KINDS:
+        raise HTTPException(status_code=422, detail="kind must be one of: plant, seed")
+    return kind
+
+
+def _enrich(result: SpeciesResult, lang: str) -> SpeciesResult:
+    data = enrich_species(result.model_dump(), lang=lang)
+    return SpeciesResult(**data)
+
+
+def _passes_filters(result: SpeciesResult, category: str | None, kind: str | None) -> bool:
+    if category and result.category != category:
+        return False
+    if kind and result.kind != kind:
+        return False
+    return True
 
 
 def _resolve_api_key(
@@ -190,9 +249,15 @@ async def _search_floracodex(q: str, api_key: str) -> list[SpeciesResult]:
 @router.get("/species/search", response_model=list[SpeciesResult])
 async def search_species(
     q: str,
+    lang: str = "en",
+    category: str | None = None,
+    kind: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    lang = _check_lang(lang)
+    category = _check_category(category)
+    kind = _check_kind(kind)
     env_ok = not current_user.is_demo
     perenual_key = _resolve_api_key(
         "perenual_api_key", current_user.id, db, allow_env_fallback=env_ok
@@ -225,9 +290,61 @@ async def search_species(
         key = result.scientific_name.lower().strip()
         if key and key not in seen:
             seen.add(key)
-            merged.append(result)
+            enriched = _enrich(result, lang)
+            if _passes_filters(enriched, category, kind):
+                merged.append(enriched)
+
+    # Catalogue-first: local Indian names need no API key, so a Tulsi search
+    # works even when Perenual/FloraCodex keys are missing (demo/offline).
+    try:
+        catalogue_hits = search_catalogue(
+            q, category=category, kind=kind, lang=lang, limit=20
+        )
+    except Exception:
+        catalogue_hits = []
+    for hit in catalogue_hits:
+        key = (hit.get("scientific_name") or "").lower().strip()
+        hit_result = SpeciesResult(**hit)
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        merged.append(hit_result)
 
     return merged[:20]
+
+
+class CategoryOut(BaseModel):
+    name: str
+    count: int
+
+
+@router.get("/categories", response_model=list[CategoryOut])
+def get_categories(current_user: User = Depends(get_current_user)):
+    """List Indian catalogue categories with entry counts. No API key needed."""
+    return list_categories()
+
+
+@router.get("/indian-catalogue", response_model=list[SpeciesResult])
+def get_indian_catalogue(
+    q: str = "",
+    category: str | None = None,
+    kind: str | None = None,
+    lang: str = "en",
+    limit: int = 20,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+):
+    """Paged Indian plants/seeds catalogue. Works without any external API key."""
+    lang = _check_lang(lang)
+    category = _check_category(category)
+    kind = _check_kind(kind)
+    limit = max(1, min(limit, 100))
+    offset = max(0, offset)
+    hits = search_catalogue(
+        q, category=category, kind=kind, lang=lang, limit=limit, offset=offset
+    )
+    return [SpeciesResult(**h) for h in hits]
 
 
 class WikiDescription(BaseModel):
@@ -237,29 +354,38 @@ class WikiDescription(BaseModel):
 
 @router.get("/species/wiki-description", response_model=WikiDescription)
 async def wiki_description(
-    scientific_name: str, current_user: User = Depends(get_current_user)
+    scientific_name: str,
+    lang: str = "en",
+    current_user: User = Depends(get_current_user),
 ):
-    """Fetch description and thumbnail from Wikipedia — free, no API key required."""
+    """Fetch description and thumbnail from Wikipedia — free, no API key required.
+
+    Tries the requested language subdomain first (hi/gu), falls back to English.
+    """
+    lang = _check_lang(lang)
     wiki_name = scientific_name.replace(" ", "_")
+    subdomains = [lang] if lang != "en" else []
+    subdomains.append("en")
     try:
         async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
-            resp = await client.get(
-                f"https://en.wikipedia.org/api/rest_v1/page/summary/{wiki_name}",
-                headers={"User-Agent": "PlantaApp/1.0"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                extract = data.get("extract", "")
-                sentences = extract.split(". ")
-                description = ". ".join(sentences[:3]).strip()
-                if description and len(sentences) > 3:
-                    description += "."
-                thumbnail = (
-                    data.get("thumbnail", {}).get("source")
-                    if data.get("thumbnail")
-                    else None
+            for sub in subdomains:
+                resp = await client.get(
+                    f"https://{sub}.wikipedia.org/api/rest_v1/page/summary/{wiki_name}",
+                    headers={"User-Agent": "PlantaApp/1.0"},
                 )
-                return {"description": description or None, "thumbnail": thumbnail}
+                if resp.status_code == 200:
+                    data = resp.json()
+                    extract = data.get("extract", "")
+                    sentences = extract.split(". ")
+                    description = ". ".join(sentences[:3]).strip()
+                    if description and len(sentences) > 3:
+                        description += "."
+                    thumbnail = (
+                        data.get("thumbnail", {}).get("source")
+                        if data.get("thumbnail")
+                        else None
+                    )
+                    return {"description": description or None, "thumbnail": thumbnail}
     except Exception:
         pass
     return {"description": None, "thumbnail": None}
@@ -283,23 +409,28 @@ async def ai_care(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-async def _wikipedia_description(scientific_name: str) -> str | None:
-    """Fetch a plain-English description from Wikipedia using the scientific name."""
+async def _wikipedia_description(scientific_name: str, lang: str = "en") -> str | None:
+    """Fetch a concise description from Wikipedia, trying `lang` first then English."""
+    if lang not in VALID_LANGS:
+        lang = "en"
+    subdomains = [lang] if lang != "en" else []
+    subdomains.append("en")
     try:
         wiki_name = scientific_name.replace(" ", "_")
         async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
-            resp = await client.get(
-                f"https://en.wikipedia.org/api/rest_v1/page/summary/{wiki_name}",
-                headers={"User-Agent": "PlantaApp/1.0"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                extract = data.get("extract", "")
-                # Return first two sentences to keep it concise
-                sentences = extract.split(". ")
-                return ". ".join(sentences[:3]).strip() + (
-                    "." if len(sentences) > 3 else ""
+            for sub in subdomains:
+                resp = await client.get(
+                    f"https://{sub}.wikipedia.org/api/rest_v1/page/summary/{wiki_name}",
+                    headers={"User-Agent": "PlantaApp/1.0"},
                 )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    extract = data.get("extract", "")
+                    # Return first two sentences to keep it concise
+                    sentences = extract.split(". ")
+                    return ". ".join(sentences[:3]).strip() + (
+                        "." if len(sentences) > 3 else ""
+                    )
     except Exception:
         pass
     return None
@@ -309,9 +440,28 @@ async def _wikipedia_description(scientific_name: str) -> str | None:
 async def get_species(
     species_id: str,
     source: str = "perenual",
+    lang: str = "en",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    lang = _check_lang(lang)
+    if source == "indian_catalogue":
+        # Catalogue detail by id (e.g. id=indian-tulsi-plant) or scientific name.
+        wanted = species_id.removeprefix("indian-")
+        match = next(
+            (e for e in search_catalogue("", lang=lang, limit=100) if e["id"] == species_id or e["id"] == f"indian-{wanted}"),
+            None,
+        )
+        if match is None:
+            from data.indian_plants import catalogue_to_species, find_by_scientific
+
+            entry = find_by_scientific(species_id.replace("_", " "))
+            if entry is None:
+                raise HTTPException(status_code=404, detail="Species not found")
+            match = catalogue_to_species(entry, lang=lang)
+        if match is None:
+            raise HTTPException(status_code=404, detail="Species not found")
+        return SpeciesResult(**match)
     if source == "inaturalist":
         async with httpx.AsyncClient(timeout=8) as client:
             resp = await client.get(
@@ -325,18 +475,21 @@ async def get_species(
         item = results[0]
         photo = item.get("default_photo") or {}
         scientific_name = item.get("name", "")
-        description = await _wikipedia_description(scientific_name)
-        return SpeciesResult(
-            id=str(item["id"]),
-            common_name=item.get("preferred_common_name") or "",
-            scientific_name=scientific_name,
-            thumbnail=photo.get("medium_url") or photo.get("square_url"),
-            watering=None,
-            watering_days=None,
-            sunlight=None,
-            cycle=None,
-            description=description,
-            source="inaturalist",
+        description = await _wikipedia_description(scientific_name, lang)
+        return _enrich(
+            SpeciesResult(
+                id=str(item["id"]),
+                common_name=item.get("preferred_common_name") or "",
+                scientific_name=scientific_name,
+                thumbnail=photo.get("medium_url") or photo.get("square_url"),
+                watering=None,
+                watering_days=None,
+                sunlight=None,
+                cycle=None,
+                description=description,
+                source="inaturalist",
+            ),
+            lang,
         )
 
     if source == "floracodex":
@@ -366,18 +519,21 @@ async def get_species(
                 if english:
                     common_name = english[0]
                     break
-        description = await _wikipedia_description(scientific_name)
-        return SpeciesResult(
-            id=str(item["id"]),
-            common_name=common_name,
-            scientific_name=scientific_name,
-            thumbnail=item.get("image_url"),
-            watering=None,
-            watering_days=None,
-            sunlight=None,
-            cycle=None,
-            description=description,
-            source="floracodex",
+        description = await _wikipedia_description(scientific_name, lang)
+        return _enrich(
+            SpeciesResult(
+                id=str(item["id"]),
+                common_name=common_name,
+                scientific_name=scientific_name,
+                thumbnail=item.get("image_url"),
+                watering=None,
+                watering_days=None,
+                sunlight=None,
+                cycle=None,
+                description=description,
+                source="floracodex",
+            ),
+            lang,
         )
 
     # Default: Perenual
@@ -410,20 +566,23 @@ async def get_species(
     desc_sections = item.get("description", [])
     description = _clean(desc_sections[0].get("description") if desc_sections else None)
     if not description and scientific_name:
-        description = await _wikipedia_description(scientific_name)
-    return SpeciesResult(
-        id=str(item["id"]),
-        common_name=item.get("common_name", ""),
-        scientific_name=scientific_name,
-        thumbnail=item.get("default_image", {}).get("thumbnail")
-        if item.get("default_image")
-        else None,
-        watering=watering,
-        watering_days=WATERING_TO_DAYS.get(watering),
-        sunlight=_clean_list(item.get("sunlight")),
-        cycle=_clean(item.get("cycle")),
-        description=description,
-        source="perenual",
+        description = await _wikipedia_description(scientific_name, lang)
+    return _enrich(
+        SpeciesResult(
+            id=str(item["id"]),
+            common_name=item.get("common_name", ""),
+            scientific_name=scientific_name,
+            thumbnail=item.get("default_image", {}).get("thumbnail")
+            if item.get("default_image")
+            else None,
+            watering=watering,
+            watering_days=WATERING_TO_DAYS.get(watering),
+            sunlight=_clean_list(item.get("sunlight")),
+            cycle=_clean(item.get("cycle")),
+            description=description,
+            source="perenual",
+        ),
+        lang,
     )
 
 
