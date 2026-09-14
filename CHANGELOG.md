@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/PradipLalpura/sproutvibe-Shivansh/compare/v1.0.1...v1.1.0) (2026-09-14)
+
+
+### Features
+
+* phase 2 English-Hindi-Gujarati translation with synced language switcher ([7fe9446](https://github.com/PradipLalpura/sproutvibe-Shivansh/commit/7fe944637a0bd852f001de49cc8a301a7c83b37b))
+
 ## [1.0.1](https://github.com/PradipLalpura/sproutvibe-Shivansh/compare/v1.0.0...v1.0.1) (2026-09-14)
 
 
