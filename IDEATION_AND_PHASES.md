@@ -1,9 +1,11 @@
 # SproutVibe-Shivansh — Ideation & Phases
 
 > Scope owner: Shivansh team (fork of `sproutvibe-main`)
-> Date: 2026-09-14
+> Date: 2026-09-14 (updated: RAG/context decision recorded, phases NOT executed)
 > Status: **Planning only — no code changes yet**
 > Source codebase analysed: `backend/routes/plants.py`, `backend/ai/care.py`, `backend/core/config.py`, `frontend/src/api/plants.js`, `README.md`, `CHANGELOG.md`
+> Key note: temporary Groq key shared by owner is **remembered for future phases only — never committed** (env/Setting at build time). See §5.
+> Companion: `EXPLANATION.md` (human/viva story) + `SHIVANSH_CHANGELOG.md` (version tracker).
 
 This document captures the **ideation** (what + why + how) and **phases** (build order) for the 4 requested tasks:
 
@@ -110,6 +112,16 @@ Current AI is one-shot care JSON. Users want: “My Tulsi leaves are yellowing, 
 **MCP synergy:**
 - Existing `mcp/` tools (`list_plants, list_due_tasks, ...`) map 1:1 to agent tools — reuse schemas.
 
+### 2.2b RAG / context design (adopted — RAG-lite, explainable)
+
+Decision: **no vector DB for MVP**. Retrieval = SQLite lookups + catalogue join + FTS-style keyword match; generation = Groq/Cerebras. This is precise, runs on a college laptop, and is viva-traceable.
+
+- **Context builder** (`backend/ai/agent.py::build_context()`): per message, fetch (1) user plants + due/overdue schedules, (2) recent journal health (last 3 per plant), (3) matched `indian_plants` entry, (4) last `PlantScan` for referenced plant, (5) top-3 snippets from curated `backend/data/plant_knowledge.md` by keyword overlap. Cap context (~2k tokens), always include plant ids + names.
+- **Grounding rule in system prompt:** “Answer ONLY from provided context + general care knowledge. Name the plant. If context is missing, say what is missing and ask for a photo or plant name. Never invent a plant the user does not have.”
+- **Anti-slop guards:** short steps (max 4), confidence + disclaimer on disease, reply in requested `lang`, no pesticide dosage beyond label, refuse non-plant scope politely.
+- **Optional stretch (Phase 6 only):** `sqlite-vec` or FTS5 over `plant_knowledge.md` + journals for semantic recall. Explicitly out of MVP to stay explainable.
+- **New planned file:** `backend/data/plant_knowledge.md` (30–50 short human-reviewed notes, en + hi/gu terms inline).
+
 ### 2.3 Acceptance criteria
 - [ ] Logged-in user can chat about own plants; agent lists due tasks correctly.
 - [ ] Hindi + Gujarati replies are fluent; language toggle persists.
@@ -186,7 +198,7 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 
 ## 5. Cross-cutting concerns (all tasks)
 
-- **Keys & config**: add `GROQ_API_KEY/MODEL, CEREBRAS_API_KEY/MODEL, DEFAULT_LANGUAGE` to `.env.example` + `config.example.yml` + `SettingsPage` integrations section + `generate-secrets.sh` prompt (docs only, no secret values in repo).
+- **Keys & config**: add `GROQ_API_KEY/MODEL, CEREBRAS_API_KEY/MODEL, DEFAULT_LANGUAGE` to `.env.example` + `config.example.yml` + `SettingsPage` integrations section + `generate-secrets.sh` prompt (docs only, no secret values in repo). Temporary Groq key provided 2026-09-14 is for local/dev use only — set via `export GROQ_API_KEY=...` or user Setting at build time, never committed, never logged. Same `_resolve_api_key` + demo-block pattern as Perenual/Anthropic.
 - **Demo/kiosk**: demo users use own keys; server keys hidden; chat/scan rate-limited stricter for demo.
 - **MCP**: expose `scan_plant` + `chat_ask` tools later (phase 6).
 - **A11y + mobile**: Devanagari/Gujarati font sizes, camera permissions, bottom-nav chat entry.
@@ -232,9 +244,10 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 - Done when §4.3 passes.
 
 ### Phase 5 — Chatbot agent (3–5 days, depends on Phase 2 + 3, benefits from Phase 1)
-- `backend/routes/chat.py + ai/agent.py + models/chat.py`, tool-calling (read tools first), session persistence, rate limits.
+- `backend/routes/chat.py + ai/agent.py (incl. build_context RAG-lite) + models/chat.py`, tool-calling (read tools first), session persistence, rate limits.
+- Curated `backend/data/plant_knowledge.md` (human-reviewed, versioned).
 - Frontend `ChatPage + ChatWidget + api/chat.js`, streaming/polling MVP.
-- Tests: tools, sessions, fallback, isolation.
+- Tests: tools, sessions, fallback, isolation + grounding test (agent names correct plant, refuses unknown plant).
 - Done when §2.3 passes.
 
 ### Phase 6 — Polish, QA, release (1–2 days)
@@ -244,6 +257,7 @@ Photo upload exists but gives zero intelligence. Users want: point camera at lea
 **Proposed new files (to be created in phases, not now):**
 ```
 backend/data/indian_plants.json
+backend/data/plant_knowledge.md
 backend/models/indian_plant.py
 backend/models/chat.py
 backend/models/plant_scan.py
@@ -278,4 +292,4 @@ frontend/src/components/ChatWidget.jsx
 ---
 
 ## 8. What is explicitly NOT in this doc commit
-No backend/frontend code, no dependency installs, no model keys, no DB migrations. Only planning files.
+No backend/frontend code, no dependency installs, no model keys, no DB migrations. Only planning files. Phases remain unexecuted per owner instruction 2026-09-14; temporary Groq key remembered privately, not stored in repo.
