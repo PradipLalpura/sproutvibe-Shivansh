@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/PradipLalpura/sproutvibe-Shivansh/compare/v1.0.0...v1.0.1) (2026-09-14)
+
+
+### Bug Fixes
+
+* review phase 0 and 1, direct catalogue lookup, lint clean, docs synced ([6c7cbf1](https://github.com/PradipLalpura/sproutvibe-Shivansh/commit/6c7cbf1d305fc38117c33f9e882e22ee6f5cecc1))
+
 # 1.0.0 (2026-09-14)
 
 
